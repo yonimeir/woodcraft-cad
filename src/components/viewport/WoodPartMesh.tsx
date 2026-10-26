@@ -34,6 +34,8 @@ export const WoodPartMesh: React.FC<Props> = ({
 }) => {
   const { camera, raycaster, pointer } = useThree();
   const selectPart = useProjectStore((s) => s.selectPart);
+  const activeNotePartId = useProjectStore((s) => s.activeNotePartId);
+  const setActiveNotePartId = useProjectStore((s) => s.setActiveNotePartId);
   const movePartWithSnap = useProjectStore((s) => s.movePartWithSnap);
   const pushHistory = useProjectStore((s) => s.pushHistory);
   const setActiveSnapLines = useProjectStore((s) => s.setActiveSnapLines);
@@ -246,11 +248,11 @@ export const WoodPartMesh: React.FC<Props> = ({
         </mesh>
       ))}
 
-      {/* Part Cut-List Letter Badge & Structural Warning Badge */}
+      {/* Compact Part Cut-List Letter Badge & Clickable Warning/Collision Icon */}
       <Html position={[0, halfT + 16, 0]} center distanceFactor={2300}>
-        <div className="flex items-center gap-1 pointer-events-none select-none">
+        <div className="flex items-center gap-1 select-none">
           <span
-            className={`px-1.5 py-0.2 rounded text-[11px] font-mono font-bold shadow border ${
+            className={`px-1.5 py-0.2 rounded text-[11px] font-mono font-bold shadow border pointer-events-none ${
               isSelected
                 ? 'bg-amber-500 text-slate-950 border-amber-200'
                 : 'bg-slate-900/85 text-slate-200 border-slate-600/80'
@@ -259,18 +261,33 @@ export const WoodPartMesh: React.FC<Props> = ({
             {cutLabel}
           </span>
           {part.locked && (
-            <span className="bg-slate-900/90 text-amber-400 px-1 rounded text-[10px]">
+            <span className="bg-slate-900/90 text-amber-400 px-1 rounded text-[10px] pointer-events-none">
               🔒
             </span>
           )}
-          {hasSevereLoad && loadWarning && (
-            <span
-              className="bg-red-600/95 text-white border border-red-300 px-2 py-0.5 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1 animate-pulse"
-              title={loadWarning.recommendationHe}
+          {(hasSevereLoad || hasCollision) && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                selectPart(part.id);
+                setActiveNotePartId(
+                  activeNotePartId === part.id ? null : part.id
+                );
+              }}
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border transition cursor-pointer pointer-events-auto ${
+                hasSevereLoad
+                  ? 'bg-red-600 hover:bg-red-500 text-white border-red-200 animate-bounce'
+                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-200'
+              }`}
+              title={
+                hasSevereLoad
+                  ? 'לחץ לפתיחת הערת עומסים ושקיעה על קורה זו'
+                  : 'לחץ לפתיחת אפשרויות חיתוך מגרעת (Half-Lap) במפגש הקורות'
+              }
             >
-              ⚠️ שקיעה צפויה: {loadWarning.deflectionMm} מ"מ (מפתח{' '}
-              {Math.round(loadWarning.unsupportedSpanMm / 10)} ס"מ)
-            </span>
+              ⚠️
+            </button>
           )}
         </div>
       </Html>

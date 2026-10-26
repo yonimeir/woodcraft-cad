@@ -644,7 +644,7 @@ export function analyzeStructuralLoads(parts: Part[]): StructuralLoadResult[] {
       unsupportedSpanMm = outerLength;
     }
 
-    if (unsupportedSpanMm < 400) continue;
+    if (unsupportedSpanMm < 850) continue;
 
     // Engineering beam deflection calculation:
     // E in N/mm^2 (MPa) = elasticModulusGPa * 1000
@@ -653,18 +653,18 @@ export function analyzeStructuralLoads(parts: Part[]): StructuralLoadResult[] {
     const I_mm4 = (breadthMm * Math.pow(hMm, 3)) / 12;
 
     // Self-weight of the span in N + realistic utility design load:
-    // For shelves/tables/beams, typical woodworking design load is ~65 kg/m distributed + 35 kg point load equivalent
+    // Scale design load proportionally to unsupported span (e.g. ~55 kg/m uniform load)
     const spanMeters = unsupportedSpanMm / 1000;
     const volumeM3 = (unsupportedSpanMm * breadthMm * hMm) / 1e9;
     const selfWeightKg = volumeM3 * stock.densityKgM3;
-    const designUsageLoadKg = Math.round(45 + spanMeters * 40); // e.g., ~165kg across a 3m span
+    const designUsageLoadKg = Math.round(spanMeters * 55);
     const totalLoadKg = selfWeightKg + designUsageLoadKg;
     const totalLoadN = totalLoadKg * 9.81;
 
-    // Combined uniform + mid-span point load equivalent deflection:
+    // Uniformly distributed load + modest center load deflection:
     // delta = (5 * W_unif * L^3) / (384 * E * I) + (P_center * L^3) / (48 * E * I)
-    const W_unif = totalLoadN * 0.65;
-    const P_center = totalLoadN * 0.35;
+    const W_unif = totalLoadN * 0.8;
+    const P_center = totalLoadN * 0.2;
     const L = unsupportedSpanMm;
 
     const deflectionMm =

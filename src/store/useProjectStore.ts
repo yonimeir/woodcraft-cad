@@ -27,13 +27,32 @@ interface HistorySnapshot {
   groups: PartGroup[];
 }
 
-export type CameraViewPreset = 'iso' | 'top' | 'front' | 'back' | 'left' | 'right';
+export type CameraViewPreset =
+  | 'iso'
+  | 'top'
+  | 'bottom'
+  | 'front'
+  | 'back'
+  | 'left'
+  | 'right'
+  | 'front-right'
+  | 'front-left'
+  | 'back-right'
+  | 'back-left'
+  | 'top-front-right'
+  | 'top-front-left'
+  | 'top-back-right'
+  | 'top-back-left'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'fit';
 
 interface ProjectState {
   projectName: string;
   parts: Part[];
   groups: PartGroup[];
   selectedIds: string[];
+  activeNotePartId: string | null;
   activeView: '3d' | 'workshop';
   unitMode: 'mm' | 'cm';
   showLiveDimensions: boolean;
@@ -49,6 +68,7 @@ interface ProjectState {
 
   // Actions
   setProjectName: (name: string) => void;
+  setActiveNotePartId: (id: string | null) => void;
   setActiveView: (view: '3d' | 'workshop') => void;
   setUnitMode: (mode: 'mm' | 'cm') => void;
   setShowLiveDimensions: (show: boolean) => void;
@@ -239,6 +259,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   parts: initial.parts,
   groups: initial.groups,
   selectedIds: initial.parts[0] ? [initial.parts[0].id] : [],
+  activeNotePartId: null,
   activeView: '3d',
   unitMode: 'mm',
   showLiveDimensions: true,
@@ -257,6 +278,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     saveToLocalStorage({ ...get(), projectName });
   },
 
+  setActiveNotePartId: (activeNotePartId) => set({ activeNotePartId }),
   setActiveView: (activeView) => set({ activeView }),
   setUnitMode: (unitMode) => set({ unitMode }),
   setShowLiveDimensions: (showLiveDimensions) => set({ showLiveDimensions }),
