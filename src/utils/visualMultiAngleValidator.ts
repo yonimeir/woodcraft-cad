@@ -6,7 +6,10 @@ import {
   getPartWorldBounds,
   resolvePartLengths,
 } from './geometryAndEngineering';
-import { sanitizeAndAuditGeneratedModel } from './aiProductGenerator';
+import {
+  callGeminiJsonWithFallback,
+  sanitizeAndAuditGeneratedModel,
+} from './aiProductGenerator';
 
 export interface AngleScreenshot {
   id: 'iso' | 'front' | 'side' | 'top';
@@ -446,29 +449,21 @@ Return ONLY valid JSON with shape:
   "correctedParts": [ ...same structure as input parts, with fixed position/rotation/dimensions if looksGood is false, or empty array if looksGood is true ]
 }`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
-      apiKey.trim()
-    )}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [...imageParts, { text: visionPrompt }],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.15,
+  let parsed: any;
+  try {
+    parsed = await callGeminiJsonWithFallback(apiKey, {
+      contents: [
+        {
+          role: 'user',
+          parts: [...imageParts, { text: visionPrompt }],
         },
-      }),
-    }
-  );
-
-  if (!response.ok) {
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.15,
+      },
+    });
+  } catch {
     return {
       fixedParts: currentParts,
       fixedGroups: currentGroups,
@@ -476,19 +471,6 @@ Return ONLY valid JSON with shape:
       wasModified: false,
     };
   }
-
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    return {
-      fixedParts: currentParts,
-      fixedGroups: currentGroups,
-      critiqueHe: 'בדיקת צילומי המסך (4 זוויות) אומתה בהצלחה.',
-      wasModified: false,
-    };
-  }
-
-  const parsed = JSON.parse(rawText);
   if (
     !parsed.looksGood &&
     Array.isArray(parsed.correctedParts) &&

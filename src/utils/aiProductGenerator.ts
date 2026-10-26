@@ -1630,9 +1630,78 @@ export function generateProductSmart(options: {
   };
 }
 
+const GEMINI_CANDIDATE_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-flash',
+];
+
+/**
+ * Helper that calls Google Generative Language API with automatic model fallback
+ * (prevents 404 errors if a specific model alias isn't enabled for a user's key/region)
+ * and strips any accidental markdown code fences before JSON parsing.
+ */
+export async function callGeminiJsonWithFallback(
+  apiKey: string,
+  payload: Record<string, any>
+): Promise<any> {
+  const cleanKey = apiKey.trim();
+  let lastStatus = 0;
+  let lastErrorMsg = '';
+
+  for (const modelName of GEMINI_CANDIDATE_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(
+      cleanKey
+    )}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const rawText: string | undefined =
+        data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) {
+        throw new Error('לא התקבל פלט טקסט מהמודל');
+      }
+      // Clean markdown ```json ... ``` wrappers if present
+      const cleaned = rawText
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+      return JSON.parse(cleaned);
+    }
+
+    lastStatus = response.status;
+    try {
+      const errJson = await response.json();
+      lastErrorMsg = errJson?.error?.message || '';
+    } catch {
+      lastErrorMsg = '';
+    }
+
+    // If 404 (model not found) or 400 (model unsupported), try the next fallback model!
+    if (response.status === 404 || response.status === 400) {
+      continue;
+    }
+
+    // If 401/403 (invalid API key) or 429 (quota), stop immediately and report clearly
+    break;
+  }
+
+  throw new Error(
+    `שגיאת חיבור ל-Gemini API (${lastStatus})${
+      lastErrorMsg ? `: ${lastErrorMsg}` : ''
+    }`
+  );
+}
+
 /**
  * Optional Gemini API Free-Form Generator + Self-Verification Pass:
- * Generates arbitrary custom products via Gemini 2.5 Flash and passes the result
+ * Generates arbitrary custom products via Gemini Flash and passes the result
  * through `sanitizeAndAuditGeneratedModel` so no floating or protruding boards survive.
  */
 export async function generateWithGeminiAI(
@@ -1672,33 +1741,14 @@ CRITICAL GEOMETRIC & VISUAL RULES:
   }]
 }`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
-      apiKey.trim()
-    )}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`שגיאת חיבור ל-Gemini API (${response.status})`);
-  }
-
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error('לא התקבל פלט מהמודל');
-
-  const parsed = JSON.parse(rawText);
+  const parsed = await callGeminiJsonWithFallback(apiKey, {
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.2,
+    },
+  });
   const builtGroups: PartGroup[] = (parsed.groups || []).map(
     (g: any, idx: number) => ({
       id: g.id || `grp-ai-${idx}`,
