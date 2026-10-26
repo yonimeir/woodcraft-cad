@@ -71,7 +71,7 @@ export const LiveDimensions3D: React.FC = () => {
             dashed
             dashScale={0.08}
           />
-          <Html position={cl.mid} center>
+          <Html position={cl.mid} center zIndexRange={[10, 0]}>
             <div className="bg-slate-900/90 text-emerald-300 border border-emerald-500/50 px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap pointer-events-none">
               {cl.axisLabel}: {fmt(cl.distMm)}
             </div>

@@ -276,7 +276,7 @@ export const WoodPartMesh: React.FC<Props> = ({
 
       {/* ONLY render a small clickable ⚠️ button when there's an actual engineering warning or collision */}
       {(hasSevereLoad || hasCollision) && (
-        <Html position={[0, halfT + 28, 0]} center>
+        <Html position={[0, halfT + 28, 0]} center zIndexRange={[10, 0]}>
           <button
             type="button"
             onClick={(e) => {

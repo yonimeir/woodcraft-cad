@@ -321,9 +321,9 @@ function buildGardenSwing(params: {
   heightMm: number;
   species: 'pine' | 'oak' | 'ipe';
 }): { name: string; parts: Part[]; groups: PartGroup[] } {
-  const totalW = Math.max(1500, Math.min(2800, params.widthMm || 2100));
-  const totalD = Math.max(1100, Math.min(1800, params.depthMm || 1350));
-  const totalH = Math.max(1700, Math.min(2300, params.heightMm || 1950));
+  const totalW = Math.max(950, Math.min(3400, params.widthMm || 2100));
+  const totalD = Math.max(750, Math.min(2200, params.depthMm || 1350));
+  const totalH = Math.max(1150, Math.min(2500, params.heightMm || 1950));
 
   const postStock = params.species === 'oak' ? 'oak-5x10' : 'pine-5x10';
   const beamStock = 'pine-5x15';
@@ -450,10 +450,10 @@ function buildGardenSwing(params: {
   ];
 
   // Suspended Swing Bench (centered between the A-Frames)
-  const benchW = Math.max(900, totalW - 680);
-  const seatY = 520;
-  const seatDepth = 480;
-  const backHeight = 460;
+  const benchW = Math.max(480, totalW - 620);
+  const seatY = Math.round(totalH * 0.27);
+  const seatDepth = Math.min(480, Math.round(totalD * 0.38));
+  const backHeight = Math.min(460, Math.round(totalH * 0.24));
   const halfBenchW = benchW / 2 - 35;
 
   // Seat Side Supports & Backrest Supports
@@ -1526,6 +1526,17 @@ export function generateProductSmart(options: {
   const q = options.prompt.trim().toLowerCase();
   const parsed = parsePromptDimensions(q);
 
+  // Detect small/baby/child/compact scale keywords when no explicit dimensions are given
+  const isBabyOrSmall =
+    q.includes('תינוק') ||
+    q.includes('פעוט') ||
+    q.includes('קטנ') ||
+    q.includes('קומפקט') ||
+    q.includes('ילד');
+  const isLarge = q.includes('גדול') || q.includes('רחב') || q.includes('ענק');
+
+  const scaleFactor = isBabyOrSmall ? 0.68 : isLarge ? 1.2 : 1.0;
+
   const widthMm = options.customWidthMm || parsed.widthMm || 0;
   const depthMm = options.customDepthMm || parsed.depthMm || 0;
   const heightMm = options.customHeightMm || parsed.heightMm || 0;
@@ -1540,27 +1551,49 @@ export function generateProductSmart(options: {
   let raw: { name: string; parts: Part[]; groups: PartGroup[] };
 
   if (q.includes('נדנד') || q.includes('swing') || q.includes('ערסל')) {
-    raw = buildGardenSwing({ widthMm, depthMm, heightMm, species });
+    raw = buildGardenSwing({
+      widthMm: widthMm || Math.round(2100 * scaleFactor),
+      depthMm: depthMm || Math.round(1350 * scaleFactor),
+      heightMm: heightMm || Math.round(1950 * (isBabyOrSmall ? 0.78 : 1)),
+      species,
+    });
   } else if (q.includes('פרגול') || q.includes('גגון') || q.includes('סוכה') || q.includes('pergola')) {
-    raw = buildPergola({ widthMm, depthMm, heightMm });
+    raw = buildPergola({
+      widthMm: widthMm || Math.round(3200 * scaleFactor),
+      depthMm: depthMm || Math.round(2600 * scaleFactor),
+      heightMm: heightMm || 2450,
+    });
   } else if (q.includes('פיקניק') || q.includes('קמפינג') || q.includes('picnic')) {
-    raw = buildPicnicTable({ widthMm, depthMm });
+    raw = buildPicnicTable({
+      widthMm: widthMm || Math.round(1800 * scaleFactor),
+      depthMm: depthMm || Math.round(1500 * scaleFactor),
+    });
   } else if (
     q.includes('זולה') ||
     q.includes('ספה') ||
     q.includes('ספת') ||
     q.includes('כורס')
   ) {
-    raw = buildZulaSofa({ widthMm, depthMm });
-  } else if (q.includes('מיטה') || q.includes('מזרן') || q.includes('bed')) {
-    raw = buildBedFrame({ widthMm, depthMm });
+    raw = buildZulaSofa({
+      widthMm: widthMm || Math.round(1700 * scaleFactor),
+      depthMm: depthMm || Math.round(800 * scaleFactor),
+    });
+  } else if (q.includes('מיטה') || q.includes('מזרן') || q.includes('bed') || q.includes('עריסה') || q.includes('לול')) {
+    raw = buildBedFrame({
+      widthMm: widthMm || (isBabyOrSmall ? 950 : 1690),
+      depthMm: depthMm || (isBabyOrSmall ? 1400 : 2090),
+    });
   } else if (
     q.includes('אדנית') ||
     q.includes('עציץ') ||
     q.includes('ארגז') ||
     q.includes('תיבה')
   ) {
-    raw = buildPlanterBox({ widthMm, depthMm, heightMm });
+    raw = buildPlanterBox({
+      widthMm: widthMm || Math.round(1200 * scaleFactor),
+      depthMm: depthMm || Math.round(550 * scaleFactor),
+      heightMm: heightMm || Math.round(620 * scaleFactor),
+    });
   } else if (
     q.includes('מלונה') ||
     q.includes('כלב') ||
@@ -1568,10 +1601,19 @@ export function generateProductSmart(options: {
     q.includes('שובך') ||
     q.includes('בית')
   ) {
-    raw = buildDoghouse({ widthMm, depthMm, heightMm });
+    raw = buildDoghouse({
+      widthMm: widthMm || Math.round(920 * scaleFactor),
+      depthMm: depthMm || Math.round(1050 * scaleFactor),
+      heightMm: heightMm || Math.round(950 * scaleFactor),
+    });
   } else {
     // Default intelligent fallback based on keywords or garden swing if empty
-    raw = buildGardenSwing({ widthMm, depthMm, heightMm, species });
+    raw = buildGardenSwing({
+      widthMm: widthMm || Math.round(2100 * scaleFactor),
+      depthMm: depthMm || Math.round(1350 * scaleFactor),
+      heightMm: heightMm || Math.round(1950 * (isBabyOrSmall ? 0.78 : 1)),
+      species,
+    });
   }
 
   // Run Stage 2: Geometric Sanitizer & Visual Quality Auditor

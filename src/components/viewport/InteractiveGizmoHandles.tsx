@@ -575,7 +575,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
               />
             </mesh>
 
-            <Html position={[0, -32, 0]} center>
+            <Html position={[0, -32, 0]} center zIndexRange={[10, 0]}>
               <button
                 type="button"
                 onClick={(e) => {
@@ -600,6 +600,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
             part.position[2],
           ]}
           center
+          zIndexRange={[10, 0]}
         >
           <div className="bg-amber-500 text-slate-950 font-bold font-mono text-xs px-2.5 py-1 rounded-lg shadow-xl border border-amber-200 whitespace-nowrap pointer-events-none">
             {liveBadge}
