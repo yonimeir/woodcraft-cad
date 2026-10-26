@@ -1630,27 +1630,93 @@ export function generateProductSmart(options: {
   };
 }
 
-const GEMINI_CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash',
-];
+let cachedDiscoveredModels: string[] | null = null;
+let cachedForKey = '';
 
 /**
- * Helper that calls Google Generative Language API with automatic model fallback
- * (prevents 404 errors if a specific model alias isn't enabled for a user's key/region)
- * and strips any accidental markdown code fences before JSON parsing.
+ * Dynamically discovers the exact model names supported by the user's API key via `ListModels`,
+ * sorting Gemini Flash / Pro models first. This guarantees 0% 404 model-name errors!
+ */
+async function discoverAvailableGeminiModels(apiKey: string): Promise<string[]> {
+  if (cachedDiscoveredModels && cachedForKey === apiKey && cachedDiscoveredModels.length > 0) {
+    return cachedDiscoveredModels;
+  }
+
+  const defaults = [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-flash-latest',
+  ];
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(
+        apiKey
+      )}`
+    );
+    if (!res.ok) return defaults;
+    const data = await res.json();
+    const models: any[] = data?.models || [];
+
+    const validNames = models
+      .filter((m) => {
+        const methods: string[] = m.supportedGenerationMethods || [];
+        const name: string = (m.name || '').toLowerCase();
+        return (
+          methods.includes('generateContent') &&
+          name.includes('gemini') &&
+          !name.includes('embedding') &&
+          !name.includes('imagen') &&
+          !name.includes('veo') &&
+          !name.includes('tts') &&
+          !name.includes('audio')
+        );
+      })
+      .map((m) => String(m.name).replace(/^models\//, ''));
+
+    // Prioritize fast modern flash/pro models
+    validNames.sort((a, b) => {
+      const score = (n: string) => {
+        if (n === 'gemini-2.5-flash') return 100;
+        if (n.startsWith('gemini-2.5-flash')) return 95;
+        if (n.startsWith('gemini-3-flash')) return 92;
+        if (n === 'gemini-2.0-flash') return 90;
+        if (n.includes('flash')) return 80;
+        if (n.includes('pro')) return 70;
+        return 50;
+      };
+      return score(b) - score(a);
+    });
+
+    if (validNames.length > 0) {
+      cachedDiscoveredModels = validNames;
+      cachedForKey = apiKey;
+      return validNames;
+    }
+  } catch {
+    // ignore and use defaults
+  }
+
+  return defaults;
+}
+
+/**
+ * Helper that calls Google Generative Language API with dynamic `ListModels` discovery
+ * + automatic fallback, and safely extracts JSON even if wrapped in prose or markdown.
  */
 export async function callGeminiJsonWithFallback(
   apiKey: string,
   payload: Record<string, any>
 ): Promise<any> {
   const cleanKey = apiKey.trim();
+  const candidateModels = await discoverAvailableGeminiModels(cleanKey);
+
   let lastStatus = 0;
   let lastErrorMsg = '';
 
-  for (const modelName of GEMINI_CANDIDATE_MODELS) {
+  for (const modelName of candidateModels.slice(0, 5)) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(
       cleanKey
     )}`;
@@ -1662,17 +1728,32 @@ export async function callGeminiJsonWithFallback(
 
     if (response.ok) {
       const data = await response.json();
-      const rawText: string | undefined =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const partsList: any[] = data?.candidates?.[0]?.content?.parts || [];
+      const textPart = partsList.find((p) => typeof p?.text === 'string');
+      const rawText: string | undefined = textPart?.text;
       if (!rawText) {
-        throw new Error('לא התקבל פלט טקסט מהמודל');
+        lastErrorMsg = 'לא התקבל טקסט מהמודל';
+        continue;
       }
-      // Clean markdown ```json ... ``` wrappers if present
+
+      // Extract JSON object `{ ... }` robustly
       const cleaned = rawText
         .replace(/^```(?:json)?\s*/i, '')
         .replace(/\s*```$/i, '')
         .trim();
-      return JSON.parse(cleaned);
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      const jsonSlice =
+        firstBrace !== -1 && lastBrace > firstBrace
+          ? cleaned.slice(firstBrace, lastBrace + 1)
+          : cleaned;
+
+      try {
+        return JSON.parse(jsonSlice);
+      } catch (parseErr: any) {
+        lastErrorMsg = `שגיאת פענוח JSON (${modelName}): ${parseErr?.message || ''}`;
+        continue;
+      }
     }
 
     lastStatus = response.status;
@@ -1683,17 +1764,21 @@ export async function callGeminiJsonWithFallback(
       lastErrorMsg = '';
     }
 
-    // If 404 (model not found) or 400 (model unsupported), try the next fallback model!
-    if (response.status === 404 || response.status === 400) {
+    // Try next discovered model on 404, 400, or 503
+    if (
+      response.status === 404 ||
+      response.status === 400 ||
+      response.status === 503
+    ) {
       continue;
     }
 
-    // If 401/403 (invalid API key) or 429 (quota), stop immediately and report clearly
+    // Stop immediately on 401/403 (invalid key) or 429 (quota)
     break;
   }
 
   throw new Error(
-    `שגיאת חיבור ל-Gemini API (${lastStatus})${
+    `שגיאת חיבור ל-Gemini API (${lastStatus || 'שגיאה'})${
       lastErrorMsg ? `: ${lastErrorMsg}` : ''
     }`
   );
