@@ -49,7 +49,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
     id: 'workbench-table',
     name: 'שולחן עבודה / אוכל מסיבי',
     description:
-      'שולחן נגרים קלאסי (160×80 ס"מ, גובה 76 ס"מ) עם 4 רגלי 10×10, קושרות אורן 5×10 עם חורי כיס (Kreg), מדף בירץ\' תחתון ופלטת בוצ\'ר עליונה.',
+      'שולחן נגרים קלאסי (160×80 ס"מ, גובה 76 ס"מ) עם 4 רגלי 10×10, קושרות אורן 5×10 בחיבורי Kreg ללא חפיפות, מדף בירץ\' תחתון ופלטת בוצ\'ר עליונה.',
     badge: 'מומלץ להתחלה',
     groups: [
       {
@@ -78,7 +78,9 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
       },
     ],
     parts: [
-      // 4 Vertical Legs (90x90, length 732mm, rotated 90 deg around Z so length is vertical along Y)
+      // 4 Vertical Legs (90x90, length 732mm, sitting cleanly on floor Y=0..732)
+      // Outer X span: -700..+700 (centers at +-655, inner faces at +-610)
+      // Outer Z span: -350..+350 (centers at +-305, inner faces at +-260)
       makePart({
         id: 'leg-fl',
         name: 'רגל קדמית-שמאלית',
@@ -116,7 +118,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         groupId: 'grp-legs',
       }),
 
-      // Upper Aprons (Standing on edge: rx=90 so width=95 is vertical, thickness=45 is depth)
+      // Upper Aprons (exact inner span between legs: X=1220mm, Z=520mm)
       makePart({
         id: 'apron-front',
         name: 'קושרת קדמית עליונה',
@@ -158,7 +160,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         groupId: 'grp-aprons',
       }),
 
-      // Lower stretchers for shelf
+      // Lower stretchers for shelf (Y top = 180 + 47.5 = 227.5mm)
       makePart({
         id: 'stretcher-front',
         name: 'קושרת מדף קדמית',
@@ -180,18 +182,18 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         groupId: 'grp-aprons',
       }),
 
-      // Lower Birch Shelf
+      // Lower Birch Shelf (fits strictly between the 4 legs: 1220 x 520mm, resting on top of stretchers at Y=236)
       makePart({
         id: 'shelf-bottom',
         name: 'מדף תחתון בירץ\' 17 מ"מ',
         stockId: 'sheet-birch-17',
-        dimensions: { length: 1220, width: 655, thickness: 17 },
+        dimensions: { length: 1220, width: 520, thickness: 17 },
         position: [0, 236, 0],
         rotation: [0, 0, 0],
         groupId: 'grp-tops',
       }),
 
-      // Butcher Block Top
+      // Butcher Block Top (resting on top of legs Y=732 + 14 = 746)
       makePart({
         id: 'table-top',
         name: 'פלטת שולחן עליונה (בוצ\'ר 28 מ"מ)',
@@ -208,12 +210,12 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
     id: 'garden-bench-miters',
     name: 'ספסל גינה עם מסגרת גרונג 45° ושלבים',
     description:
-      'ספסל מעוצב באורך 140 ס"מ הכולל מסגרת היקפית בחיתוכי גרונג 45°, שלבי ישיבה מאלון במרווחים שווים, ורגלי אורן מסיביות.',
+      'ספסל מעוצב באורך 140 ס"מ הכולל מסגרת היקפית בחיתוכי גרונג 45° מלאים (4 דפנות), שלבי ישיבה מאלון במרווחים שווים, ורגלי אורן מסיביות.',
     badge: 'גרונג + מרווחים',
     groups: [
       {
         id: 'grp-bench-frame',
-        name: 'מסגרת גרונג 45°',
+        name: 'מסגרת גרונג 45° ורגליים',
         color: '#f59e0b',
         visible: true,
         locked: false,
@@ -229,13 +231,16 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
       },
     ],
     parts: [
-      // 4 Legs
+      // 4 Legs (90x90, height 420mm, sitting inside the mitered apron box)
+      // Outer apron box is 1400mm (X: -700..+700) by 460mm (Z: -230..+230)
+      // Aprons are 45mm thick -> inner box is X: -655..+655, Z: -185..+185
+      // Legs (90x90) sit snugly against inner corners at X: +-610, Z: +-140
       makePart({
         id: 'b-leg-1',
         name: 'רגל ספסל קדמית-שמאל',
         stockId: 'pine-10x10',
         dimensions: { length: 420, width: 90, thickness: 90 },
-        position: [-610, 210, 160],
+        position: [-610, 210, 140],
         rotation: [0, 0, 90],
         groupId: 'grp-bench-frame',
       }),
@@ -244,7 +249,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         name: 'רגל ספסל קדמית-ימין',
         stockId: 'pine-10x10',
         dimensions: { length: 420, width: 90, thickness: 90 },
-        position: [610, 210, 160],
+        position: [610, 210, 140],
         rotation: [0, 0, 90],
         groupId: 'grp-bench-frame',
       }),
@@ -253,7 +258,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         name: 'רגל ספסל אחורית-שמאל',
         stockId: 'pine-10x10',
         dimensions: { length: 420, width: 90, thickness: 90 },
-        position: [-610, 210, -160],
+        position: [-610, 210, -140],
         rotation: [0, 0, 90],
         groupId: 'grp-bench-frame',
       }),
@@ -262,18 +267,18 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         name: 'רגל ספסל אחורית-ימין',
         stockId: 'pine-10x10',
         dimensions: { length: 420, width: 90, thickness: 90 },
-        position: [610, 210, -160],
+        position: [610, 210, -140],
         rotation: [0, 0, 90],
         groupId: 'grp-bench-frame',
       }),
 
-      // Mitered perimeter frame (45 deg cuts at ends)
+      // Complete 4-sided Mitered perimeter frame (Front, Back, Left, Right)
       makePart({
         id: 'b-frame-front',
         name: 'מסגרת קדמית (גרונג 45°)',
         stockId: 'pine-5x10',
         dimensions: { length: 1400, width: 95, thickness: 45 },
-        position: [0, 372.5, 227.5],
+        position: [0, 372.5, 207.5],
         rotation: [90, 0, 0],
         miterStart: { enabled: true, angle: 45, axis: 'z' },
         miterEnd: { enabled: true, angle: 45, axis: 'z' },
@@ -284,14 +289,36 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         name: 'מסגרת אחורית (גרונג 45°)',
         stockId: 'pine-5x10',
         dimensions: { length: 1400, width: 95, thickness: 45 },
-        position: [0, 372.5, -227.5],
+        position: [0, 372.5, -207.5],
         rotation: [90, 0, 0],
         miterStart: { enabled: true, angle: 45, axis: 'z' },
         miterEnd: { enabled: true, angle: 45, axis: 'z' },
         groupId: 'grp-bench-frame',
       }),
+      makePart({
+        id: 'b-frame-left',
+        name: 'מסגרת צד שמאל (גרונג 45°)',
+        stockId: 'pine-5x10',
+        dimensions: { length: 370, width: 95, thickness: 45 },
+        position: [-677.5, 372.5, 0],
+        rotation: [90, 90, 0],
+        miterStart: { enabled: true, angle: 45, axis: 'z' },
+        miterEnd: { enabled: true, angle: 45, axis: 'z' },
+        groupId: 'grp-bench-frame',
+      }),
+      makePart({
+        id: 'b-frame-right',
+        name: 'מסגרת צד ימין (גרונג 45°)',
+        stockId: 'pine-5x10',
+        dimensions: { length: 370, width: 95, thickness: 45 },
+        position: [677.5, 372.5, 0],
+        rotation: [90, 90, 0],
+        miterStart: { enabled: true, angle: 45, axis: 'z' },
+        miterEnd: { enabled: true, angle: 45, axis: 'z' },
+        groupId: 'grp-bench-frame',
+      }),
 
-      // 4 Oak slats spaced evenly across top
+      // 4 Oak slats spaced evenly across top (Y = 420 + 10 = 430)
       makePart({
         id: 'b-slat-1',
         name: 'שלב אלון 1 (קדמי)',
@@ -335,7 +362,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
     id: 'niche-bookshelf-room',
     name: 'ספריית מדפים מותאמת לחדר (כולל קירות וחלון)',
     description:
-      'יחידת מדפים מודולרית מפלטות בירץ\' 17 מ"מ המתוכננת בצמוד לקיר חדר עם חלון ושקע חשמל (בסגנון מתכנן החדרים של איקאה).',
+      'יחידת מדפים מודולרית מפלטות בירץ\' 17 מ"מ המתוכננת בצמוד לקיר חדר עם חלון ושקע חשמל (ללא חפיפת דפנות).',
     badge: 'תכנון סביבתי + פלטות',
     room: {
       enabled: true,
@@ -367,6 +394,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
     ],
     parts: [
       // Left Vertical Side Panel (Birch 17mm, height 1800, depth 350)
+      // At X = -450, inner face is at -450 + 8.5 = -441.5
       makePart({
         id: 'sh-side-l',
         name: 'דופן שמאלית (בירץ\' 17)',
@@ -377,6 +405,7 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         groupId: 'grp-shelf-sides',
       }),
       // Right Vertical Side Panel
+      // At X = +450, inner face is at +450 - 8.5 = +441.5 (exact clear span = 883mm)
       makePart({
         id: 'sh-side-r',
         name: 'דופן ימנית (בירץ\' 17)',
@@ -386,13 +415,13 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         rotation: [0, 0, 90],
         groupId: 'grp-shelf-sides',
       }),
-      // 5 Horizontal Shelves with Kreg pocket holes underneath
-      ...[120, 520, 920, 1320, 1791.5].map((yPos, idx) =>
+      // 4 Internal Shelves (length 880mm so they sit cleanly between the sides with zero collision)
+      ...[120, 560, 1000, 1440].map((yPos, idx) =>
         makePart({
           id: `sh-board-${idx + 1}`,
-          name: idx === 4 ? 'גג הספרייה' : `מדף בירץ' מפלס ${idx + 1}`,
+          name: `מדף בירץ' מפלס ${idx + 1}`,
           stockId: 'sheet-birch-17',
-          dimensions: { length: 883, width: 350, thickness: 17 },
+          dimensions: { length: 880, width: 350, thickness: 17 },
           position: [0, yPos, -910],
           rotation: [0, 0, 0],
           pocketHoles: {
@@ -404,6 +433,16 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
           groupId: 'grp-shelf-boards',
         })
       ),
+      // Top Cap Board resting cleanly on top of the two side panels (Y = 1800 + 8.5 = 1808.5, length = 917mm)
+      makePart({
+        id: 'sh-board-5',
+        name: 'גג הספרייה העליון',
+        stockId: 'sheet-birch-17',
+        dimensions: { length: 917, width: 350, thickness: 17 },
+        position: [0, 1808.5, -910],
+        rotation: [0, 0, 0],
+        groupId: 'grp-shelf-boards',
+      }),
     ],
   },
 
@@ -432,7 +471,6 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
       },
     ],
     parts: [
-      // Left leg at X = -1450
       makePart({
         id: 'span-leg-l',
         name: 'רגל תמיכה שמאלית (מפתח 3 מ\')',
@@ -442,7 +480,6 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         rotation: [0, 0, 90],
         groupId: 'grp-span-test',
       }),
-      // Right leg at X = +1450
       makePart({
         id: 'span-leg-r',
         name: 'רגל תמיכה ימנית (מפתח 3 מ\')',
@@ -452,7 +489,6 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         rotation: [0, 0, 90],
         groupId: 'grp-span-test',
       }),
-      // 3000mm Oak 2x10 laid flat across the two legs -> Triggers Structural Sag Warning!
       makePart({
         id: 'span-oak-beam',
         name: 'קורת אלון 2×10 במפתח 3 מטר',
@@ -462,8 +498,6 @@ export const STARTER_TEMPLATES: ProjectTemplate[] = [
         rotation: [0, 0, 0],
         groupId: 'grp-span-test',
       }),
-
-      // Intersecting Half-Lap Cross Beams in front
       makePart({
         id: 'lap-beam-a',
         name: 'קורת צלב אורכית (עם מגרעת חצי-חצי)',

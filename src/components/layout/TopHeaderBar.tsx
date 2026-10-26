@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { TemplatesModal } from '../modals/TemplatesModal';
 import { ProductGeneratorModal } from '../modals/ProductGeneratorModal';
@@ -11,6 +11,7 @@ import {
   Redo2,
   Ruler,
   Scissors,
+  Trash2,
   Undo2,
   Upload,
   Wand2,
@@ -36,10 +37,22 @@ export const TopHeaderBar: React.FC = () => {
 
   const past = useProjectStore((s) => s.past);
   const future = useProjectStore((s) => s.future);
+  const partsCount = useProjectStore((s) => s.parts.length);
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
+  const clearWorkspace = useProjectStore((s) => s.clearWorkspace);
   const exportProjectJson = useProjectStore((s) => s.exportProjectJson);
   const importProjectJson = useProjectStore((s) => s.importProjectJson);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail === 'templates') setTemplatesOpen(true);
+      if (detail === 'generator') setGeneratorOpen(true);
+    };
+    window.addEventListener('woodcraft:open-modal', handler);
+    return () => window.removeEventListener('woodcraft:open-modal', handler);
+  }, []);
 
   const handleSaveJson = () => {
     const json = exportProjectJson();
@@ -106,6 +119,17 @@ export const TopHeaderBar: React.FC = () => {
             <LayoutTemplate className="w-4 h-4" />
             תבניות מוכנות
           </button>
+
+          {partsCount > 0 && (
+            <button
+              onClick={() => clearWorkspace()}
+              className="bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              title="נקה משטח עבודה והתחל מדף ריק"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              נקה משטח
+            </button>
+          )}
         </div>
 
         {/* Center: Primary View Switcher (3D CAD vs Workshop Cut Optimizer) */}

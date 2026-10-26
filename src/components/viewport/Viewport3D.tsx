@@ -22,11 +22,14 @@ import { RoomContextMesh } from './RoomContextMesh';
 import { ViewCubeOverlay } from './ViewCubeOverlay';
 import {
   AlertTriangle,
+  LayoutTemplate,
   Maximize2,
   Move,
+  Plus,
   RotateCw,
   Scissors,
   ShieldAlert,
+  Wand2,
   X,
 } from 'lucide-react';
 
@@ -151,6 +154,7 @@ export const Viewport3D: React.FC = () => {
   const setActiveNotePartId = useProjectStore((s) => s.setActiveNotePartId);
   const createParametricDado = useProjectStore((s) => s.createParametricDado);
   const rotatePartWithPivot = useProjectStore((s) => s.rotatePartWithPivot);
+  const addPartFromStock = useProjectStore((s) => s.addPartFromStock);
 
   const [orbitEnabled, setOrbitEnabled] = useState(true);
   const [pillDismissed, setPillDismissed] = useState(false);
@@ -355,6 +359,63 @@ export const Viewport3D: React.FC = () => {
           maxDistance={9000}
         />
       </Canvas>
+
+      {/* Clean Empty-State Quick Launcher Card when Workspace has 0 parts */}
+      {parts.length === 0 && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 p-4">
+          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl p-6 max-w-md w-full shadow-2xl text-center space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-extrabold text-white">
+                משטח העבודה נקי ומוכן לתכנון
+              </h3>
+              <p className="text-xs text-slate-400">
+                בחר איך תרצה להתחיל את הפרויקט שלך:
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5">
+              <button
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('woodcraft:open-modal', {
+                      detail: 'generator',
+                    })
+                  )
+                }
+                className="w-full bg-gradient-to-l from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+              >
+                <Wand2 className="w-4 h-4" />
+                ✨ ג'נרט מוצר חכם / פרויקט משאריות עץ
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('woodcraft:open-modal', {
+                      detail: 'templates',
+                    })
+                  )
+                }
+                className="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                בחר מתוך תבניות מוכנות (מאומתות ויזואלית)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addPartFromStock('pine-5x10')}
+                className="w-full bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 font-semibold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-emerald-400" />
+                או הוסף קורת עץ ראשונה והתחל מאפס
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Small Unobtrusive Corner Pill when no note is open (with X to hide) */}
       {!activeNotePart && totalAlertsCount > 0 && !pillDismissed && (

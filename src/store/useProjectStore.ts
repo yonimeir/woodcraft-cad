@@ -11,6 +11,8 @@ import {
 } from '../types/woodcraft';
 import { getStockById } from '../data/stockLibrary';
 import { STARTER_TEMPLATES } from '../data/starterTemplates';
+import { sanitizeAndAuditGeneratedModel } from '../utils/aiProductGenerator';
+import { renderAndValidateMultiAngle } from '../utils/visualMultiAngleValidator';
 import {
   computeSmartSnap,
   detectPartCollisions,
@@ -20,7 +22,7 @@ import {
   rotatePartAroundPivot,
 } from '../utils/geometryAndEngineering';
 
-const STORAGE_KEY = 'woodcraft_cad_project_v1';
+const STORAGE_KEY = 'woodcraft_cad_project_v2';
 
 interface HistorySnapshot {
   parts: Part[];
@@ -211,9 +213,9 @@ function loadInitialState(): {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.parts) && parsed.parts.length > 0) {
+      if (parsed && Array.isArray(parsed.parts)) {
         return {
-          projectName: parsed.projectName || 'שולחן עבודה מסיבי',
+          projectName: parsed.projectName || 'פרויקט נגרות חדש',
           parts: parsed.parts,
           groups: parsed.groups || [],
           room: { ...DEFAULT_ROOM, ...(parsed.room || {}) },
@@ -228,11 +230,11 @@ function loadInitialState(): {
     // ignore storage parse errors
   }
 
-  const starter = STARTER_TEMPLATES[0];
+  // Open on a clean, empty workspace by default!
   return {
-    projectName: starter.name,
-    parts: JSON.parse(JSON.stringify(starter.parts)),
-    groups: JSON.parse(JSON.stringify(starter.groups)),
+    projectName: 'פרויקט נגרות חדש',
+    parts: [],
+    groups: [],
     room: { ...DEFAULT_ROOM },
     optimizerSettings: { ...DEFAULT_OPTIMIZER },
   };
@@ -938,8 +940,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const tmpl = STARTER_TEMPLATES.find((t) => t.id === templateId);
     if (!tmpl) return;
     get().pushHistory();
-    const parts: Part[] = JSON.parse(JSON.stringify(tmpl.parts));
-    const groups: PartGroup[] = JSON.parse(JSON.stringify(tmpl.groups));
+    const rawParts: Part[] = JSON.parse(JSON.stringify(tmpl.parts));
+    const rawGroups: PartGroup[] = JSON.parse(JSON.stringify(tmpl.groups));
+
+    // Pass every template through the Geometric Sanitizer & Multi-Angle Visual Validator!
+    const sanitized = sanitizeAndAuditGeneratedModel(rawParts, rawGroups);
+    const validated = renderAndValidateMultiAngle(
+      sanitized.parts,
+      sanitized.groups
+    );
+
+    const parts = validated.parts;
+    const groups = validated.groups;
     const room: RoomEnvironment = tmpl.room
       ? { ...get().room, ...tmpl.room }
       : { ...get().room, enabled: false };
@@ -960,7 +972,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       groups,
       room,
     });
-    get().addToast(`נטענה תבנית: ${tmpl.name}`, 'success');
+    get().addToast(`נטענה ואומתה ויזואלית תבנית: ${tmpl.name}`, 'success');
   },
 
   applyGeneratedProduct: (name, parts, groups) => {
@@ -989,11 +1001,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   clearWorkspace: () => {
     get().pushHistory();
+    const cleanRoom = { ...DEFAULT_ROOM, enabled: false };
     set({
       projectName: 'פרויקט נגרות חדש',
       parts: [],
       groups: [],
+      room: cleanRoom,
       selectedIds: [],
+      activeNotePartId: null,
       activeSnapLines: [],
     });
     saveToLocalStorage({
@@ -1001,8 +1016,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       projectName: 'פרויקט נגרות חדש',
       parts: [],
       groups: [],
+      room: cleanRoom,
     });
-    get().addToast('משטח העבודה נוקה', 'info');
+    get().addToast('משטח העבודה נוקה לחלוטין', 'info');
   },
 
   exportProjectJson: () => {
