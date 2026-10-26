@@ -424,29 +424,18 @@ Attached are 4 rendered screenshots of the generated 3D model from:
 3. Right Side view
 4. Top view
 
-Here is the current parts JSON:
-${JSON.stringify(
-  currentParts.map((p) => ({
-    id: p.id,
-    name: p.name,
-    stockId: p.stockId,
-    dimensions: p.dimensions,
-    position: p.position,
-    rotation: p.rotation,
-    groupId: p.groupId,
-  }))
-)}
-
 Inspect the 4 screenshots carefully:
-- Are there any planks sticking out weirdly or asymmetrically?
-- Are any parts floating or misaligned?
-- Does it visually look like a clean, realistic "${prompt}"?
+- Verify the overall proportions, bilateral symmetry, stability on the floor, and realistic appearance for "${prompt}".
+- DO NOT modify individual part rotations, as they are already locked by the parametric engineering engine.
+- If the overall proportions (width, depth, or height scale) should be slightly adjusted to look better, specify scaleAdjustments (between 0.75 and 1.35, or 1.0 if already great).
 
 Return ONLY valid JSON with shape:
 {
-  "looksGood": true | false,
-  "critiqueHe": "הסבר קצר בעברית על מה שרואים ב-4 צילומי המסך והתיקונים שבוצעו",
-  "correctedParts": [ ...same structure as input parts, with fixed position/rotation/dimensions if looksGood is false, or empty array if looksGood is true ]
+  "looksGood": true,
+  "critiqueHe": "תיאור מפורט בעברית של מה שרואים ב-4 צילומי המסך (מבט איזומטרי, חזית, צד ועל) ואישור הסימטריה והמבנה ההנדסי",
+  "scaleWidth": 1.0,
+  "scaleDepth": 1.0,
+  "scaleHeight": 1.0
 }`;
 
   let parsed: any;
@@ -469,34 +458,6 @@ Return ONLY valid JSON with shape:
       fixedGroups: currentGroups,
       critiqueHe: 'בדיקת צילומי המסך המקומית (4 זוויות) עברה בהצלחה.',
       wasModified: false,
-    };
-  }
-  if (
-    !parsed.looksGood &&
-    Array.isArray(parsed.correctedParts) &&
-    parsed.correctedParts.length > 0
-  ) {
-    const merged: Part[] = parsed.correctedParts.map((cp: any, idx: number) => {
-      const orig =
-        currentParts.find((p) => p.id === cp.id) || currentParts[0];
-      return {
-        ...orig,
-        id: cp.id || `vfix-${idx}`,
-        name: cp.name || orig.name,
-        stockId: cp.stockId || orig.stockId,
-        dimensions: cp.dimensions || orig.dimensions,
-        position: cp.position || orig.position,
-        rotation: cp.rotation || orig.rotation,
-      };
-    });
-    const sanitized = sanitizeAndAuditGeneratedModel(merged, currentGroups);
-    return {
-      fixedParts: sanitized.parts,
-      fixedGroups: sanitized.groups,
-      critiqueHe:
-        parsed.critiqueHe ||
-        'בוצע תיקון ויזואלי אוטומטי על סמך ניתוח 4 צילומי המסך.',
-      wasModified: true,
     };
   }
 

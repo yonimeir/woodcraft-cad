@@ -45,6 +45,14 @@ const STORAGE_KEY_API = 'woodcraft_gemini_key';
 
 const PRESET_PROMPTS = [
   {
+    id: 'baby-swing',
+    label: '👶 נדנדת תינוקות מוגנת',
+    prompt: 'נדנדת גינה תלויה לתינוקות עם מעקה בטיחות T-Bar',
+    defaultW: 1400,
+    defaultD: 1150,
+    defaultH: 1550,
+  },
+  {
     id: 'swing',
     label: '🎢 נדנדת גינה A-Frame',
     prompt: 'נדנדת גינה עם מסגרת A-Frame וספסל תלוי',
@@ -83,6 +91,22 @@ const PRESET_PROMPTS = [
     defaultW: 1690,
     defaultD: 2090,
     defaultH: 960,
+  },
+  {
+    id: 'step-tower',
+    label: '🪜 מגדל למידה מונטסורי',
+    prompt: 'מגדל למידה מונטסורי לילדים עם מדרגה ומעקה בטיחות',
+    defaultW: 480,
+    defaultD: 460,
+    defaultH: 900,
+  },
+  {
+    id: 'bookshelf',
+    label: '📚 ספריית מדפים מבירץ׳',
+    prompt: 'ספריית מדפים מעץ בירץ׳ עם 5 קומות',
+    defaultW: 950,
+    defaultD: 350,
+    defaultH: 1800,
   },
   {
     id: 'planter',

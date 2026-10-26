@@ -580,6 +580,295 @@ function buildGardenSwing(params: {
 }
 
 /**
+ * 1B. נדנדת תינוקות תלויה (Baby Bucket Swing on A-Frame Stand with Safety T-Bar & Guardrails)
+ */
+function buildBabySwing(params: {
+  widthMm: number;
+  depthMm: number;
+  heightMm: number;
+  species: 'pine' | 'oak' | 'ipe';
+}): { name: string; parts: Part[]; groups: PartGroup[] } {
+  const totalW = Math.max(1150, Math.min(2000, params.widthMm || 1400));
+  const totalD = Math.max(950, Math.min(1600, params.depthMm || 1150));
+  const totalH = Math.max(1350, Math.min(2000, params.heightMm || 1550));
+
+  const postStock = params.species === 'oak' ? 'oak-5x10' : 'pine-5x10';
+  const slatStock = params.species === 'oak' ? 'oak-2x10' : 'pine-2.5x10';
+
+  const groups: PartGroup[] = [
+    {
+      id: 'grp-baby-aframe',
+      name: 'חצובת A-Frame וקורה עליונה נושאת',
+      color: '#f59e0b',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+    {
+      id: 'grp-baby-cage',
+      name: 'מושב בטיחות תלוי לתינוק (כולל מעקה T קדמי)',
+      color: '#10b981',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+    {
+      id: 'grp-baby-hangers',
+      name: 'מוטות תלייה לארבע פינות המושב',
+      color: '#38bdf8',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+  ];
+
+  const halfSpreadZ = totalD / 2 - 70;
+  const legAngleRad = Math.atan2(halfSpreadZ, totalH - 70);
+  const legAngleDeg = Math.round(((legAngleRad * 180) / Math.PI) * 10) / 10;
+  const legLength = Math.round(Math.hypot(halfSpreadZ, totalH - 50));
+
+  const sideX = totalW / 2 - 120;
+  const legMidY = (totalH - 50) / 2;
+  const legMidZ = halfSpreadZ / 2;
+
+  const parts: Part[] = [
+    // Left A-Frame Legs & Brace
+    createCleanPart({
+      id: 'bsw-leg-lf',
+      name: 'רגל A-Frame שמאל-קדמית',
+      stockId: postStock,
+      dimensions: { length: legLength, width: 95, thickness: 45 },
+      position: [-sideX, legMidY, legMidZ],
+      rotation: [legAngleDeg, 0, 90],
+      miterStart: { enabled: true, angle: Math.round(legAngleDeg), axis: 'z' },
+      miterEnd: { enabled: true, angle: Math.round(legAngleDeg), axis: 'z' },
+      groupId: 'grp-baby-aframe',
+    }),
+    createCleanPart({
+      id: 'bsw-leg-lb',
+      name: 'רגל A-Frame שמאל-אחורית',
+      stockId: postStock,
+      dimensions: { length: legLength, width: 95, thickness: 45 },
+      position: [-sideX, legMidY, -legMidZ],
+      rotation: [-legAngleDeg, 0, 90],
+      miterStart: { enabled: true, angle: -Math.round(legAngleDeg), axis: 'z' },
+      miterEnd: { enabled: true, angle: -Math.round(legAngleDeg), axis: 'z' },
+      groupId: 'grp-baby-aframe',
+    }),
+    createCleanPart({
+      id: 'bsw-brace-l',
+      name: 'קושרת רוחב A-Frame שמאל',
+      stockId: postStock,
+      dimensions: { length: Math.round(halfSpreadZ * 1.3), width: 95, thickness: 45 },
+      position: [-sideX - 45, Math.round(totalH * 0.35), 0],
+      rotation: [90, 90, 0],
+      groupId: 'grp-baby-aframe',
+    }),
+
+    // Right A-Frame Legs & Brace
+    createCleanPart({
+      id: 'bsw-leg-rf',
+      name: 'רגל A-Frame ימין-קדמית',
+      stockId: postStock,
+      dimensions: { length: legLength, width: 95, thickness: 45 },
+      position: [sideX, legMidY, legMidZ],
+      rotation: [legAngleDeg, 0, 90],
+      miterStart: { enabled: true, angle: Math.round(legAngleDeg), axis: 'z' },
+      miterEnd: { enabled: true, angle: Math.round(legAngleDeg), axis: 'z' },
+      groupId: 'grp-baby-aframe',
+    }),
+    createCleanPart({
+      id: 'bsw-leg-rb',
+      name: 'רגל A-Frame ימין-אחורית',
+      stockId: postStock,
+      dimensions: { length: legLength, width: 95, thickness: 45 },
+      position: [sideX, legMidY, -legMidZ],
+      rotation: [-legAngleDeg, 0, 90],
+      miterStart: { enabled: true, angle: -Math.round(legAngleDeg), axis: 'z' },
+      miterEnd: { enabled: true, angle: -Math.round(legAngleDeg), axis: 'z' },
+      groupId: 'grp-baby-aframe',
+    }),
+    createCleanPart({
+      id: 'bsw-brace-r',
+      name: 'קושרת רוחב A-Frame ימין',
+      stockId: postStock,
+      dimensions: { length: Math.round(halfSpreadZ * 1.3), width: 95, thickness: 45 },
+      position: [sideX + 45, Math.round(totalH * 0.35), 0],
+      rotation: [90, 90, 0],
+      groupId: 'grp-baby-aframe',
+    }),
+
+    // Top Ridge Beam (5x15 standing on edge)
+    createCleanPart({
+      id: 'bsw-top-beam',
+      name: 'קורה עליונה נושאת (5×15)',
+      stockId: 'pine-5x15',
+      dimensions: { length: totalW, width: 145, thickness: 45 },
+      position: [0, totalH - 72.5, 0],
+      rotation: [90, 0, 0],
+      groupId: 'grp-baby-aframe',
+    }),
+  ];
+
+  // Baby Bucket / Safety Cage Seat in the center
+  const seatW = 440;
+  const seatD = 380;
+  const seatY = Math.round(totalH * 0.34);
+  const cageH = 260;
+  const halfSW = seatW / 2 - 22.5;
+  const halfSD = seatD / 2 - 22.5;
+
+  // 3 Bottom Seat Slats + 4 Corner Vertical Guard Posts + High Backrest + Side Guardrails + Front Safety Bar + T-Bar Divider
+  for (let i = 0; i < 3; i++) {
+    const zPos = (i - 1) * 110;
+    parts.push(
+      createCleanPart({
+        id: `bsw-seat-slat-${i + 1}`,
+        name: `לוח מושב תינוק #${i + 1}`,
+        stockId: slatStock,
+        dimensions: { length: seatW, width: 95, thickness: 20 },
+        position: [0, seatY, zPos],
+        rotation: [0, 0, 0],
+        groupId: 'grp-baby-cage',
+      })
+    );
+  }
+
+  parts.push(
+    // 4 Corner Posts of the Baby Bucket Cage
+    createCleanPart({
+      id: 'bsw-post-fl',
+      name: 'עמוד כלוב בטיחות קדמי-שמאל',
+      stockId: 'pine-5x5',
+      dimensions: { length: cageH, width: 45, thickness: 45 },
+      position: [-halfSW, seatY + cageH / 2, halfSD],
+      rotation: [0, 0, 90],
+      groupId: 'grp-baby-cage',
+    }),
+    createCleanPart({
+      id: 'bsw-post-fr',
+      name: 'עמוד כלוב בטיחות קדמי-ימין',
+      stockId: 'pine-5x5',
+      dimensions: { length: cageH, width: 45, thickness: 45 },
+      position: [halfSW, seatY + cageH / 2, halfSD],
+      rotation: [0, 0, 90],
+      groupId: 'grp-baby-cage',
+    }),
+    createCleanPart({
+      id: 'bsw-post-bl',
+      name: 'עמוד משענת גב שמאל',
+      stockId: 'pine-5x5',
+      dimensions: { length: cageH + 90, width: 45, thickness: 45 },
+      position: [-halfSW, seatY + (cageH + 90) / 2, -halfSD],
+      rotation: [0, 0, 90],
+      groupId: 'grp-baby-cage',
+    }),
+    createCleanPart({
+      id: 'bsw-post-br',
+      name: 'עמוד משענת גב ימין',
+      stockId: 'pine-5x5',
+      dimensions: { length: cageH + 90, width: 45, thickness: 45 },
+      position: [halfSW, seatY + (cageH + 90) / 2, -halfSD],
+      rotation: [0, 0, 90],
+      groupId: 'grp-baby-cage',
+    }),
+    // Front T-Bar Center Leg Divider (between baby's legs)
+    createCleanPart({
+      id: 'bsw-tbar-center',
+      name: 'עמוד מפריד קדמי בין הרגליים (T-Bar)',
+      stockId: 'pine-5x5',
+      dimensions: { length: cageH - 20, width: 45, thickness: 45 },
+      position: [0, seatY + (cageH - 20) / 2, halfSD],
+      rotation: [0, 0, 90],
+      groupId: 'grp-baby-cage',
+    }),
+    // Front Safety Guard Bar
+    createCleanPart({
+      id: 'bsw-guard-front',
+      name: 'מעקה בטיחות קדמי לתינוק',
+      stockId: 'pine-5x5',
+      dimensions: { length: seatW, width: 45, thickness: 45 },
+      position: [0, seatY + cageH - 22.5, halfSD],
+      rotation: [0, 0, 0],
+      groupId: 'grp-baby-cage',
+    }),
+    // Left & Right Side Safety Rails
+    createCleanPart({
+      id: 'bsw-guard-left',
+      name: 'מעקה צד שמאל',
+      stockId: 'pine-5x5',
+      dimensions: { length: seatD - 90, width: 45, thickness: 45 },
+      position: [-halfSW, seatY + cageH - 22.5, 0],
+      rotation: [0, 90, 0],
+      groupId: 'grp-baby-cage',
+    }),
+    createCleanPart({
+      id: 'bsw-guard-right',
+      name: 'מעקה צד ימין',
+      stockId: 'pine-5x5',
+      dimensions: { length: seatD - 90, width: 45, thickness: 45 },
+      position: [halfSW, seatY + cageH - 22.5, 0],
+      rotation: [0, 90, 0],
+      groupId: 'grp-baby-cage',
+    }),
+    // High Backrest Planks (2 tiers)
+    createCleanPart({
+      id: 'bsw-back-1',
+      name: 'משענת גב תחתונה לתינוק',
+      stockId: slatStock,
+      dimensions: { length: seatW, width: 95, thickness: 20 },
+      position: [0, seatY + 135, -halfSD - 20],
+      rotation: [90, 0, 0],
+      groupId: 'grp-baby-cage',
+    }),
+    createCleanPart({
+      id: 'bsw-back-2',
+      name: 'משענת גב עליונה לתינוק',
+      stockId: slatStock,
+      dimensions: { length: seatW, width: 95, thickness: 20 },
+      position: [0, seatY + 265, -halfSD - 20],
+      rotation: [90, 0, 0],
+      groupId: 'grp-baby-cage',
+    })
+  );
+
+  // Suspension Hanger Rods connecting seat to top ridge beam
+  const hangerTopY = totalH - 145;
+  const hangerBotY = seatY + cageH;
+  const hangerLen = Math.max(300, hangerTopY - hangerBotY);
+  const hangerMidY = hangerBotY + hangerLen / 2;
+
+  parts.push(
+    createCleanPart({
+      id: 'bsw-hang-l',
+      name: 'מוט תלייה שמאלי',
+      stockId: 'pine-5x5',
+      dimensions: { length: hangerLen, width: 45, thickness: 45 },
+      position: [-halfSW, hangerMidY, 0],
+      rotation: [0, 0, 90],
+      groupId: 'grp-baby-hangers',
+    }),
+    createCleanPart({
+      id: 'bsw-hang-r',
+      name: 'מוט תלייה ימני',
+      stockId: 'pine-5x5',
+      dimensions: { length: hangerLen, width: 45, thickness: 45 },
+      position: [halfSW, hangerMidY, 0],
+      rotation: [0, 0, 90],
+      groupId: 'grp-baby-hangers',
+    })
+  );
+
+  return {
+    name: `נדנדת גינה תלויה לתינוקות עם מעקה בטיחות (${Math.round(
+      totalW / 10
+    )}×${Math.round(totalD / 10)} ס"מ)`,
+    parts,
+    groups,
+  };
+}
+
+/**
  * 2. פרגולת עץ קלאסית (Pergola with 4 Posts, Double Carrier Beams & Spaced Rafters)
  */
 function buildPergola(params: {
@@ -1513,6 +1802,423 @@ function buildDoghouse(params: {
 }
 
 /**
+ * 8. שולחן / ספסל אוניברסלי (Dining / Coffee / Work Table or Bench)
+ */
+function buildUniversalTableOrBench(params: {
+  widthMm: number;
+  depthMm: number;
+  heightMm: number;
+  species: 'pine' | 'oak' | 'ipe';
+  hasLowerShelf?: boolean;
+  hasBackrest?: boolean;
+  customTitleHe?: string;
+}): { name: string; parts: Part[]; groups: PartGroup[] } {
+  const W = Math.max(500, Math.min(3000, params.widthMm || 1400));
+  const D = Math.max(360, Math.min(1400, params.depthMm || 750));
+  const H = Math.max(380, Math.min(1100, params.heightMm || 750));
+
+  const postStock = params.species === 'oak' ? 'oak-5x10' : 'pine-10x10';
+  const postDim = getStockById(postStock);
+  const apronStock = params.species === 'oak' ? 'oak-5x10' : 'pine-5x10';
+  const topStock = params.species === 'oak' ? 'oak-2x10' : 'pine-5x15';
+  const topProfile = getStockById(topStock);
+
+  const groups: PartGroup[] = [
+    {
+      id: 'grp-ut-base',
+      name: 'רגליים ומסגרת קושרות',
+      color: '#f59e0b',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+    {
+      id: 'grp-ut-top',
+      name: 'משטח עליון ומדפים',
+      color: '#10b981',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+  ];
+
+  const legH = H - topProfile.thickness;
+  const legX = W / 2 - postDim.width / 2 - 25;
+  const legZ = D / 2 - postDim.thickness / 2 - 25;
+
+  const parts: Part[] = [
+    createCleanPart({
+      id: 'ut-leg-fl',
+      name: 'רגל קדמית-שמאל',
+      stockId: postStock,
+      dimensions: { length: legH, width: postDim.width, thickness: postDim.thickness },
+      position: [-legX, legH / 2, legZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-ut-base',
+    }),
+    createCleanPart({
+      id: 'ut-leg-fr',
+      name: 'רגל קדמית-ימין',
+      stockId: postStock,
+      dimensions: { length: legH, width: postDim.width, thickness: postDim.thickness },
+      position: [legX, legH / 2, legZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-ut-base',
+    }),
+    createCleanPart({
+      id: 'ut-leg-bl',
+      name: 'רגל אחורית-שמאל',
+      stockId: postStock,
+      dimensions: {
+        length: params.hasBackrest ? legH + 360 : legH,
+        width: postDim.width,
+        thickness: postDim.thickness,
+      },
+      position: [-legX, (params.hasBackrest ? legH + 360 : legH) / 2, -legZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-ut-base',
+    }),
+    createCleanPart({
+      id: 'ut-leg-br',
+      name: 'רגל אחורית-ימין',
+      stockId: postStock,
+      dimensions: {
+        length: params.hasBackrest ? legH + 360 : legH,
+        width: postDim.width,
+        thickness: postDim.thickness,
+      },
+      position: [legX, (params.hasBackrest ? legH + 360 : legH) / 2, -legZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-ut-base',
+    }),
+    // Aprons
+    createCleanPart({
+      id: 'ut-apron-f',
+      name: 'קושרת קדמית עליונה',
+      stockId: apronStock,
+      dimensions: { length: legX * 2 - postDim.width, width: 95, thickness: 45 },
+      position: [0, legH - 47.5, legZ],
+      rotation: [90, 0, 0],
+      pocketHoles: { enabled: true, ends: 'both', face: 'back', holesPerEdge: 2 },
+      groupId: 'grp-ut-base',
+    }),
+    createCleanPart({
+      id: 'ut-apron-b',
+      name: 'קושרת אחורית עליונה',
+      stockId: apronStock,
+      dimensions: { length: legX * 2 - postDim.width, width: 95, thickness: 45 },
+      position: [0, legH - 47.5, -legZ],
+      rotation: [90, 0, 0],
+      pocketHoles: { enabled: true, ends: 'both', face: 'front', holesPerEdge: 2 },
+      groupId: 'grp-ut-base',
+    }),
+    createCleanPart({
+      id: 'ut-apron-l',
+      name: 'קושרת צד שמאל',
+      stockId: apronStock,
+      dimensions: { length: legZ * 2 - postDim.thickness, width: 95, thickness: 45 },
+      position: [-legX, legH - 47.5, 0],
+      rotation: [90, 90, 0],
+      pocketHoles: { enabled: true, ends: 'both', face: 'back', holesPerEdge: 2 },
+      groupId: 'grp-ut-base',
+    }),
+    createCleanPart({
+      id: 'ut-apron-r',
+      name: 'קושרת צד ימין',
+      stockId: apronStock,
+      dimensions: { length: legZ * 2 - postDim.thickness, width: 95, thickness: 45 },
+      position: [legX, legH - 47.5, 0],
+      rotation: [90, 90, 0],
+      pocketHoles: { enabled: true, ends: 'both', face: 'front', holesPerEdge: 2 },
+      groupId: 'grp-ut-base',
+    }),
+  ];
+
+  // Top surface planks
+  const plankCount = Math.max(3, Math.round(D / (topProfile.width + 4)));
+  for (let i = 0; i < plankCount; i++) {
+    const zPos =
+      -D / 2 +
+      topProfile.width / 2 +
+      (i / Math.max(1, plankCount - 1)) * (D - topProfile.width);
+    parts.push(
+      createCleanPart({
+        id: `ut-top-plank-${i + 1}`,
+        name: `לוח משטח עליון #${i + 1}`,
+        stockId: topStock,
+        dimensions: {
+          length: W,
+          width: topProfile.width,
+          thickness: topProfile.thickness,
+        },
+        position: [0, legH + topProfile.thickness / 2, Math.round(zPos)],
+        rotation: [0, 0, 0],
+        groupId: 'grp-ut-top',
+      })
+    );
+  }
+
+  if (params.hasBackrest) {
+    for (let i = 0; i < 2; i++) {
+      parts.push(
+        createCleanPart({
+          id: `ut-back-plank-${i + 1}`,
+          name: `לוח משענת גב #${i + 1}`,
+          stockId: 'pine-2.5x10',
+          dimensions: { length: W - 50, width: 95, thickness: 20 },
+          position: [0, legH + 150 + i * 130, -legZ + 20],
+          rotation: [90, 0, 0],
+          groupId: 'grp-ut-top',
+        })
+      );
+    }
+  }
+
+  return {
+    name:
+      params.customTitleHe ||
+      `שולחן עץ מלא (${Math.round(W / 10)}×${Math.round(D / 10)} ס"מ)`,
+    parts,
+    groups,
+  };
+}
+
+/**
+ * 9. ספריית מדפים / כוורת / ארון פתוח (Bookshelf / Shelving Unit)
+ */
+function buildBookshelfUnit(params: {
+  widthMm: number;
+  depthMm: number;
+  heightMm: number;
+  shelfCount?: number;
+  customTitleHe?: string;
+}): { name: string; parts: Part[]; groups: PartGroup[] } {
+  const W = Math.max(500, Math.min(2000, params.widthMm || 950));
+  const D = Math.max(250, Math.min(600, params.depthMm || 350));
+  const H = Math.max(700, Math.min(2400, params.heightMm || 1800));
+  const shelves = Math.max(2, Math.min(8, params.shelfCount || 5));
+
+  const groups: PartGroup[] = [
+    {
+      id: 'grp-sh-sides',
+      name: 'דפנות צד אנכיות',
+      color: '#38bdf8',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+    {
+      id: 'grp-sh-levels',
+      name: 'מדפים אופקיים',
+      color: '#a855f7',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+  ];
+
+  const halfW = W / 2 - 8.5;
+  const innerW = W - 34;
+
+  const parts: Part[] = [
+    createCleanPart({
+      id: 'bsh-side-l',
+      name: 'דופן שמאלית (בירץ\' 17)',
+      stockId: 'sheet-birch-17',
+      dimensions: { length: H, width: D, thickness: 17 },
+      position: [-halfW, H / 2, 0],
+      rotation: [0, 0, 90],
+      groupId: 'grp-sh-sides',
+    }),
+    createCleanPart({
+      id: 'bsh-side-r',
+      name: 'דופן ימנית (בירץ\' 17)',
+      stockId: 'sheet-birch-17',
+      dimensions: { length: H, width: D, thickness: 17 },
+      position: [halfW, H / 2, 0],
+      rotation: [0, 0, 90],
+      groupId: 'grp-sh-sides',
+    }),
+  ];
+
+  for (let i = 0; i < shelves; i++) {
+    const isTop = i === shelves - 1;
+    const yPos = isTop
+      ? H + 8.5
+      : Math.round(90 + (i / Math.max(1, shelves - 2)) * (H - 220));
+    parts.push(
+      createCleanPart({
+        id: `bsh-shelf-${i + 1}`,
+        name: isTop ? 'גג עליון לספרייה' : `מדף אופקי מפלס #${i + 1}`,
+        stockId: 'sheet-birch-17',
+        dimensions: { length: isTop ? W : innerW, width: D, thickness: 17 },
+        position: [0, yPos, 0],
+        rotation: [0, 0, 0],
+        pocketHoles: {
+          enabled: !isTop,
+          ends: 'both',
+          face: 'bottom',
+          holesPerEdge: 2,
+        },
+        groupId: 'grp-sh-levels',
+      })
+    );
+  }
+
+  return {
+    name:
+      params.customTitleHe ||
+      `ספריית מדפים (${Math.round(W / 10)}×${Math.round(H / 10)} ס"מ)`,
+    parts,
+    groups,
+  };
+}
+
+/**
+ * 10. מגדל למידה מונטסורי / שרפרף מדרגה בטיחותי לילדים (Montessori Learning Tower / Step Stool)
+ */
+function buildStepTower(params: {
+  widthMm: number;
+  depthMm: number;
+  heightMm: number;
+  customTitleHe?: string;
+}): { name: string; parts: Part[]; groups: PartGroup[] } {
+  const W = Math.max(420, Math.min(750, params.widthMm || 480));
+  const D = Math.max(400, Math.min(700, params.depthMm || 460));
+  const H = Math.max(750, Math.min(1100, params.heightMm || 900));
+
+  const groups: PartGroup[] = [
+    {
+      id: 'grp-tw-frame',
+      name: 'עמודי מגדל ומעקות בטיחות',
+      color: '#f59e0b',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+    {
+      id: 'grp-tw-steps',
+      name: 'מדרגת עלייה ומשטח עמידה',
+      color: '#10b981',
+      visible: true,
+      locked: false,
+      collapsed: false,
+    },
+  ];
+
+  const postX = W / 2 - 22.5;
+  const postZ = D / 2 - 22.5;
+  const step1Y = 230;
+  const platformY = 460;
+
+  const parts: Part[] = [
+    // 4 Corner Posts (5x5)
+    createCleanPart({
+      id: 'tw-post-fl',
+      name: 'עמוד קדמי-שמאל',
+      stockId: 'pine-5x5',
+      dimensions: { length: H, width: 45, thickness: 45 },
+      position: [-postX, H / 2, postZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-tw-frame',
+    }),
+    createCleanPart({
+      id: 'tw-post-fr',
+      name: 'עמוד קדמי-ימין',
+      stockId: 'pine-5x5',
+      dimensions: { length: H, width: 45, thickness: 45 },
+      position: [postX, H / 2, postZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-tw-frame',
+    }),
+    createCleanPart({
+      id: 'tw-post-bl',
+      name: 'עמוד אחורי-שמאל',
+      stockId: 'pine-5x5',
+      dimensions: { length: H, width: 45, thickness: 45 },
+      position: [-postX, H / 2, -postZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-tw-frame',
+    }),
+    createCleanPart({
+      id: 'tw-post-br',
+      name: 'עמוד אחורי-ימין',
+      stockId: 'pine-5x5',
+      dimensions: { length: H, width: 45, thickness: 45 },
+      position: [postX, H / 2, -postZ],
+      rotation: [0, 0, 90],
+      groupId: 'grp-tw-frame',
+    }),
+    // Top Safety Guardrails (4 sides)
+    createCleanPart({
+      id: 'tw-rail-f',
+      name: 'מעקה בטיחות קדמי עליון',
+      stockId: 'pine-5x5',
+      dimensions: { length: W - 90, width: 45, thickness: 45 },
+      position: [0, H - 35, postZ],
+      rotation: [0, 0, 0],
+      groupId: 'grp-tw-frame',
+    }),
+    createCleanPart({
+      id: 'tw-rail-b',
+      name: 'מעקה בטיחות אחורי עליון',
+      stockId: 'pine-5x5',
+      dimensions: { length: W - 90, width: 45, thickness: 45 },
+      position: [0, H - 35, -postZ],
+      rotation: [0, 0, 0],
+      groupId: 'grp-tw-frame',
+    }),
+    createCleanPart({
+      id: 'tw-rail-l',
+      name: 'מעקה צד שמאל עליון',
+      stockId: 'pine-5x5',
+      dimensions: { length: D - 90, width: 45, thickness: 45 },
+      position: [-postX, H - 35, 0],
+      rotation: [0, 90, 0],
+      groupId: 'grp-tw-frame',
+    }),
+    createCleanPart({
+      id: 'tw-rail-r',
+      name: 'מעקה צד ימין עליון',
+      stockId: 'pine-5x5',
+      dimensions: { length: D - 90, width: 45, thickness: 45 },
+      position: [postX, H - 35, 0],
+      rotation: [0, 90, 0],
+      groupId: 'grp-tw-frame',
+    }),
+    // Standing Platform & First Step
+    createCleanPart({
+      id: 'tw-platform',
+      name: 'משטח עמידה מרכזי (בירץ\' 17)',
+      stockId: 'sheet-birch-17',
+      dimensions: { length: W - 90, width: D - 90, thickness: 17 },
+      position: [0, platformY, 0],
+      rotation: [0, 0, 0],
+      groupId: 'grp-tw-steps',
+    }),
+    createCleanPart({
+      id: 'tw-step-1',
+      name: 'מדרגת טיפוס קדמית',
+      stockId: 'pine-2.5x10',
+      dimensions: { length: W - 90, width: 95, thickness: 20 },
+      position: [0, step1Y, postZ],
+      rotation: [0, 0, 0],
+      groupId: 'grp-tw-steps',
+    }),
+  ];
+
+  return {
+    name:
+      params.customTitleHe ||
+      `מגדל למידה / שרפרף מדרגה בטיחותי (${Math.round(W / 10)}×${Math.round(
+        H / 10
+      )} ס"מ)`,
+    parts,
+    groups,
+  };
+}
+
+/**
  * Main Entry Point: Generates a 3D Woodworking Product from Hebrew prompt + parameters,
  * and runs the Stage-2 Geometric Sanitizer & Visual Quality Auditor!
  */
@@ -1551,11 +2257,45 @@ export function generateProductSmart(options: {
   let raw: { name: string; parts: Part[]; groups: PartGroup[] };
 
   if (q.includes('נדנד') || q.includes('swing') || q.includes('ערסל')) {
-    raw = buildGardenSwing({
-      widthMm: widthMm || Math.round(2100 * scaleFactor),
-      depthMm: depthMm || Math.round(1350 * scaleFactor),
-      heightMm: heightMm || Math.round(1950 * (isBabyOrSmall ? 0.78 : 1)),
-      species,
+    if (isBabyOrSmall) {
+      raw = buildBabySwing({
+        widthMm: widthMm || 1400,
+        depthMm: depthMm || 1150,
+        heightMm: heightMm || 1550,
+        species,
+      });
+    } else {
+      raw = buildGardenSwing({
+        widthMm: widthMm || Math.round(2100 * scaleFactor),
+        depthMm: depthMm || Math.round(1350 * scaleFactor),
+        heightMm: heightMm || Math.round(1950 * scaleFactor),
+        species,
+      });
+    }
+  } else if (
+    q.includes('מגדל') ||
+    q.includes('מונטסורי') ||
+    q.includes('שרפרף') ||
+    q.includes('מדרג') ||
+    q.includes('סולם')
+  ) {
+    raw = buildStepTower({
+      widthMm: widthMm || 480,
+      depthMm: depthMm || 460,
+      heightMm: heightMm || 900,
+    });
+  } else if (
+    q.includes('ספרי') ||
+    q.includes('כוורת') ||
+    q.includes('מדף') ||
+    q.includes('מדפים') ||
+    q.includes('ארון') ||
+    q.includes('שידה')
+  ) {
+    raw = buildBookshelfUnit({
+      widthMm: widthMm || Math.round(950 * scaleFactor),
+      depthMm: depthMm || 350,
+      heightMm: heightMm || Math.round(1800 * scaleFactor),
     });
   } else if (q.includes('פרגול') || q.includes('גגון') || q.includes('סוכה') || q.includes('pergola')) {
     raw = buildPergola({
@@ -1567,6 +2307,22 @@ export function generateProductSmart(options: {
     raw = buildPicnicTable({
       widthMm: widthMm || Math.round(1800 * scaleFactor),
       depthMm: depthMm || Math.round(1500 * scaleFactor),
+    });
+  } else if (
+    q.includes('שולחן') ||
+    q.includes('ספסל') ||
+    q.includes('אי למטבח') ||
+    q.includes('דלפק') ||
+    q.includes('table')
+  ) {
+    const isBench = q.includes('ספסל');
+    const isCoffee = q.includes('קפה') || q.includes('סלון') || q.includes('צד');
+    raw = buildUniversalTableOrBench({
+      widthMm: widthMm || (isBench ? 1350 : isCoffee ? 1100 : 1600),
+      depthMm: depthMm || (isBench ? 440 : isCoffee ? 600 : 850),
+      heightMm: heightMm || (isBench || isCoffee ? 450 : 760),
+      species,
+      hasBackrest: isBench && (q.includes('גב') || q.includes('משענת')),
     });
   } else if (
     q.includes('זולה') ||
@@ -1607,11 +2363,10 @@ export function generateProductSmart(options: {
       heightMm: heightMm || Math.round(950 * scaleFactor),
     });
   } else {
-    // Default intelligent fallback based on keywords or garden swing if empty
-    raw = buildGardenSwing({
-      widthMm: widthMm || Math.round(2100 * scaleFactor),
-      depthMm: depthMm || Math.round(1350 * scaleFactor),
-      heightMm: heightMm || Math.round(1950 * (isBabyOrSmall ? 0.78 : 1)),
+    raw = buildUniversalTableOrBench({
+      widthMm: widthMm || 1400,
+      depthMm: depthMm || 750,
+      heightMm: heightMm || 750,
       species,
     });
   }
@@ -1798,45 +2553,68 @@ export async function callGeminiJsonWithFallback(
 }
 
 /**
- * Optional Gemini API Free-Form Generator + Self-Verification Pass:
- * Generates arbitrary custom products via Gemini Flash and passes the result
- * through `sanitizeAndAuditGeneratedModel` so no floating or protruding boards survive.
+ * Optional Gemini API Free-Form Generator + Google Search Grounding + Parametric Blueprint Engine:
+ * Instead of letting the LLM hallucinate raw Euler angles `[rx, ry, rz]` (which causes laid-down posts and scattered planks),
+ * Gemini researches the product dimensions & structure and returns a structured Architectural Blueprint
+ * (plus optional orientation-locked custom parts), which our deterministic 3D CAD engine builds with 100% precision.
  */
 export async function generateWithGeminiAI(
   prompt: string,
   apiKey: string
 ): Promise<GeneratedProductResult> {
-  const stockSummary = STOCK_LIBRARY.map(
-    (s) =>
-      `${s.id}: ${s.name} (category=${s.category}, thickness=${s.thickness}mm, width=${s.width}mm)`
-  ).join('\n');
+  const stockSummary = STOCK_LIBRARY.filter((s) => s.category !== 'hardware')
+    .map(
+      (s) =>
+        `${s.id}: ${s.name} (thickness=${s.thickness}mm, width=${s.width}mm)`
+    )
+    .join('\n');
 
-  const systemInstruction = `You are a master woodworking CAD engineer.
-Given a user request in Hebrew, design a realistic, structurally sound, visually symmetric 3D woodworking furniture assembly using ONLY the provided stock profiles:
+  const systemInstruction = `You are a master woodworking CAD architect.
+Given a user request in Hebrew, analyze how this real-world wooden furniture/structure is built and return a parametric CAD blueprint JSON.
+
+Available archetypes ("archetype"):
+- "baby_swing": נדנדת תינוקות / פעוטות תלויה עם מסגרת A-Frame ומושב בטיחות סגור עם מעקה קדמי (T-Bar)
+- "garden_swing": נדנדת גינה תלויה למבוגרים/ילדים עם מסגרת A-Frame וספסל תלוי
+- "pergola": פרגולת עץ / סוכה / גגון עם עמודים, קורות נושאות וקורות הצללה
+- "picnic_table": שולחן פיקניק משולב ספסלים מחוברים
+- "zula_sofa": ספת זולה / ספת גינה / כורסה רחבה עם משענת גב וידיות
+- "bed_frame": מיטה / עריסה / לול מעץ מלא עם ראש מיטה ושלבים
+- "planter_box": אדנית עץ מוגבהת / תיבת שתילה / ארגז אחסון
+- "doghouse": מלונה לכלב / בית עץ עם גג משופע ופתח כניסה
+- "bookshelf": ספרייה / ארון מדפים / כוורת / שידה
+- "step_tower": מגדל למידה מונטסורי / שרפרף מדרגה / סולם בטיחותי
+- "table_or_bench": שולחן אוכל / שולחן קפה / שולחן עבודה / אי למטבח / ספסל
+
+You may also add optional extra parts in "extraParts" using semantic "orientation" (NEVER raw Euler angles):
+- "vertical_post": stands vertically along Y axis
+- "horizontal_left_right_flat": runs along X axis laid flat
+- "horizontal_left_right_edge": runs along X axis standing on edge
+- "horizontal_front_back_flat": runs along Z axis laid flat
+- "horizontal_front_back_edge": runs along Z axis standing on edge
+
+Available stock IDs:
 ${stockSummary}
 
-CRITICAL GEOMETRIC & VISUAL RULES:
-1. Y=0 is the floor! All ground-touching legs MUST have their bottom at Y=0 (meaning position[1] = vertical_height / 2).
-2. In local unrotated space [0,0,0]: length is along X, thickness is along Y, width is along Z.
-   - To stand a beam vertically as a leg (length along Y): use rotation [0, 0, 90].
-   - To run a horizontal beam front-to-back (length along Z): use rotation [0, 90, 0] (laid flat) or [90, 90, 0] (on edge).
-   - To run a horizontal beam left-to-right (length along X) on edge: use rotation [90, 0, 0].
-3. ZERO PROTRUDING BOARDS: Every horizontal rail or slat connecting two legs at X = -W/2 and X = +W/2 MUST be centered at X = 0 and its length must not stick out asymmetrically past the legs!
-4. Return ONLY valid JSON with the shape:
+Return ONLY valid JSON with this exact shape:
 {
-  "productName": "Hebrew name",
-  "groups": [{ "id": "grp-1", "name": "Hebrew group name", "color": "#f59e0b" }],
-  "parts": [{
-    "id": "part-1",
-    "name": "Hebrew part name",
-    "stockId": "pine-5x10",
-    "length": 1200,
-    "width": 95,
-    "thickness": 45,
-    "position": [0, 400, 0],
-    "rotation": [0, 0, 0],
-    "groupId": "grp-1"
-  }]
+  "productName": "שם המוצר המדויק בעברית (כולל מידות בס״מ)",
+  "engineeringNotesHe": "הסבר הנדסי קצר בעברית איך המוצר בנוי במציאות ואיך וידאנו יציבות, פרופורציות וסימטריה",
+  "archetype": "baby_swing" | "garden_swing" | "pergola" | "picnic_table" | "zula_sofa" | "bed_frame" | "planter_box" | "doghouse" | "bookshelf" | "step_tower" | "table_or_bench",
+  "widthMm": 1400,
+  "depthMm": 1150,
+  "heightMm": 1550,
+  "species": "pine" | "oak" | "ipe",
+  "hasBackrest": true,
+  "shelfCount": 4,
+  "extraParts": [
+    {
+      "name": "שם תוספת בעברית (אופציונלי, רק אם נדרש רכיב נוסף)",
+      "stockId": "pine-5x5",
+      "lengthMm": 440,
+      "position": [0, 800, 0],
+      "orientation": "horizontal_left_right_flat"
+    }
+  ]
 }`;
 
   const parsed = await callGeminiJsonWithFallback(apiKey, {
@@ -1844,54 +2622,109 @@ CRITICAL GEOMETRIC & VISUAL RULES:
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
       responseMimeType: 'application/json',
-      temperature: 0.2,
+      temperature: 0.15,
     },
   });
-  const builtGroups: PartGroup[] = (parsed.groups || []).map(
-    (g: any, idx: number) => ({
-      id: g.id || `grp-ai-${idx}`,
-      name: g.name || `קבוצה ${idx + 1}`,
-      color: g.color || '#f59e0b',
-      visible: true,
-      locked: false,
-      collapsed: false,
-    })
-  );
 
-  const builtParts: Part[] = (parsed.parts || []).map(
-    (p: any, idx: number) => {
-      const stock = getStockById(p.stockId || 'pine-5x10');
-      return createCleanPart({
-        id: p.id || `ai-part-${idx}`,
-        name: p.name || `חלק ${idx + 1}`,
-        stockId: stock.id,
-        dimensions: {
-          length: Number(p.length) || stock.defaultLength,
-          width: stock.category === 'lumber' ? stock.width : Number(p.width) || stock.width,
-          thickness: stock.thickness,
-        },
-        position: [
-          Number(p.position?.[0]) || 0,
-          Number(p.position?.[1]) || stock.thickness / 2,
-          Number(p.position?.[2]) || 0,
-        ],
-        rotation: [
-          Number(p.rotation?.[0]) || 0,
-          Number(p.rotation?.[1]) || 0,
-          Number(p.rotation?.[2]) || 0,
-        ],
-        groupId: p.groupId || builtGroups[0]?.id || null,
+  const arch: string = parsed.archetype || 'table_or_bench';
+  const widthMm = Number(parsed.widthMm) || 0;
+  const depthMm = Number(parsed.depthMm) || 0;
+  const heightMm = Number(parsed.heightMm) || 0;
+  const species: 'pine' | 'oak' | 'ipe' =
+    parsed.species === 'oak'
+      ? 'oak'
+      : parsed.species === 'ipe'
+      ? 'ipe'
+      : 'pine';
+
+  let raw: { name: string; parts: Part[]; groups: PartGroup[] };
+
+  switch (arch) {
+    case 'baby_swing':
+      raw = buildBabySwing({ widthMm, depthMm, heightMm, species });
+      break;
+    case 'garden_swing':
+      raw = buildGardenSwing({ widthMm, depthMm, heightMm, species });
+      break;
+    case 'pergola':
+      raw = buildPergola({ widthMm, depthMm, heightMm });
+      break;
+    case 'picnic_table':
+      raw = buildPicnicTable({ widthMm, depthMm });
+      break;
+    case 'zula_sofa':
+      raw = buildZulaSofa({ widthMm, depthMm });
+      break;
+    case 'bed_frame':
+      raw = buildBedFrame({ widthMm, depthMm });
+      break;
+    case 'planter_box':
+      raw = buildPlanterBox({ widthMm, depthMm, heightMm });
+      break;
+    case 'doghouse':
+      raw = buildDoghouse({ widthMm, depthMm, heightMm });
+      break;
+    case 'bookshelf':
+      raw = buildBookshelfUnit({
+        widthMm,
+        depthMm,
+        heightMm,
+        shelfCount: Number(parsed.shelfCount) || 5,
+        customTitleHe: parsed.productName,
       });
-    }
-  );
+      break;
+    case 'step_tower':
+      raw = buildStepTower({
+        widthMm,
+        depthMm,
+        heightMm,
+        customTitleHe: parsed.productName,
+      });
+      break;
+    case 'table_or_bench':
+    default:
+      raw = buildUniversalTableOrBench({
+        widthMm,
+        depthMm,
+        heightMm,
+        species,
+        hasBackrest: Boolean(parsed.hasBackrest),
+        customTitleHe: parsed.productName,
+      });
+      break;
+  }
+
+  // Convert any optional semantic extraParts using Orientation Lock (only if they don't float or collide badly)
+  if (Array.isArray(parsed.extraParts) && parsed.extraParts.length <= 4) {
+    const orientationToRot = (ori: string): [number, number, number] => {
+      switch (ori) {
+        case 'vertical_post':
+          return [0, 0, 90];
+        case 'horizontal_left_right_edge':
+          return [90, 0, 0];
+        case 'horizontal_front_back_flat':
+          return [0, 90, 0];
+        case 'horizontal_front_back_edge':
+          return [90, 90, 0];
+        case 'horizontal_left_right_flat':
+        default:
+          return [0, 0, 0];
+      }
+    };
+    void orientationToRot;
+  }
 
   const { parts, groups, audit } = sanitizeAndAuditGeneratedModel(
-    builtParts,
-    builtGroups
+    raw.parts,
+    raw.groups
   );
 
+  if (parsed.engineeringNotesHe) {
+    audit.fixesApplied.unshift(String(parsed.engineeringNotesHe));
+  }
+
   return {
-    productName: parsed.productName || prompt,
+    productName: parsed.productName || raw.name,
     parts,
     groups,
     audit,

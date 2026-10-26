@@ -1,5 +1,5 @@
 import { Part, PartGroup } from '../types/woodcraft';
-import { getStockById, STOCK_LIBRARY } from '../data/stockLibrary';
+import { getStockById } from '../data/stockLibrary';
 import {
   callGeminiJsonWithFallback,
   GeneratedProductResult,
@@ -693,54 +693,27 @@ export async function generateCustomScrapProjectWithAI(
   userHint: string,
   apiKey: string
 ): Promise<GeneratedProductResult> {
+  const longestPieceMm = Math.max(...inventory.map((i) => i.lengthMm), 800);
   const scrapDescription = inventory
     .map((item) => {
       const st = getStockById(item.stockId);
-      return `- ${item.quantity} יחידות של ${st.name} (stockId="${st.id}", thickness=${st.thickness}mm, width=${st.width}mm) באורך ${item.lengthMm} מ"מ כל אחת`;
+      return `- ${item.quantity} יחידות של ${st.name} (אורך ${item.lengthMm} מ"מ)`;
     })
     .join('\n');
 
-  const stockSummary = STOCK_LIBRARY.map(
-    (s) =>
-      `${s.id}: ${s.name} (category=${s.category}, thickness=${s.thickness}mm, width=${s.width}mm)`
-  ).join('\n');
-
-  const promptText = `המשתמש מחזיק במלאי שאריות העץ הבא בלבד:
+  const promptText = `המשתמש מחזיק במלאי שאריות העץ הבא:
 ${scrapDescription}
+(הקורה הארוכה ביותר היא ${longestPieceMm} מ"מ).
+${userHint ? `בקשת המשתמש: ${userHint}` : 'בחר והתאם את הפרויקט השימושי והמתאים ביותר למלאי זה.'}
 
-${userHint ? `העדפת המשתמש: ${userHint}` : 'תכנן רהיט או מוצר שימושי, יפהפה ויציב שאפשר לבנות אך ורק מהעצים האלו בלי לחרוג מהאורכים הקיימים.'}
-
-חוקים הנדסיים קריטיים:
-1. Y=0 הוא הרצפה! כל הרגליים הנוגעות ברצפה חייבות להתחיל ב-Y=0 (כלומר position[1] = גובה_הרגל / 2).
-2. במצב סיבוב [0,0,0]: האורך (length) הוא בציר X, העובי (thickness) בציר Y, הרוחב (width) בציר Z.
-   - להעמדת רגל אנכית (length לאורך Y): השתמש ב-rotation [0, 0, 90].
-   - לקורה אופקית קדימה-אחורה (length לאורך Z): השתמש ב-rotation [0, 90, 0] או [90, 90, 0].
-3. ודא סימטריה מלאה ואפס קרשים בולטים!
-4. החזר אך ורק JSON תקני במבנה:
+החזר JSON עם בחירת תבנית הנדסית ("archetype" מתוך: "bench", "plant_stand", "coffee_table", "herb_box") ומידות מדויקות שלא חורגות מ-${longestPieceMm} מ"מ:
 {
-  "productName": "שם הפרויקט מהשאריות בעברית",
-  "groups": [{ "id": "grp-1", "name": "שם קבוצה", "color": "#f59e0b" }],
-  "parts": [{
-    "id": "part-1",
-    "name": "שם החלק",
-    "stockId": "${inventory[0]?.stockId || 'pine-5x10'}",
-    "length": 600,
-    "width": 95,
-    "thickness": 45,
-    "position": [0, 300, 0],
-    "rotation": [0, 0, 90],
-    "groupId": "grp-1"
-  }]
+  "productName": "שם הפרויקט בעברית",
+  "archetype": "bench" | "plant_stand" | "coffee_table" | "herb_box",
+  "explanationHe": "הסבר קצר בעברית איך הפרויקט מנצל את העצים שהמשתמש הזין"
 }`;
 
   const parsed = await callGeminiJsonWithFallback(apiKey, {
-    systemInstruction: {
-      parts: [
-        {
-          text: `You are a master woodworking CAD designer specializing in building furniture out of leftover scrap wood. Available stock profiles:\n${stockSummary}`,
-        },
-      ],
-    },
     contents: [{ role: 'user', parts: [{ text: promptText }] }],
     generationConfig: {
       responseMimeType: 'application/json',
@@ -748,47 +721,21 @@ ${userHint ? `העדפת המשתמש: ${userHint}` : 'תכנן רהיט או מ
     },
   });
 
-  const builtGroups: PartGroup[] = (parsed.groups || []).map(
-    (g: any, idx: number) => ({
-      id: g.id || `grp-sc-ai-${idx}`,
-      name: g.name || `קבוצה ${idx + 1}`,
-      color: g.color || '#f59e0b',
-      visible: true,
-      locked: false,
-      collapsed: false,
-    })
-  );
-
-  const builtParts: Part[] = (parsed.parts || []).map((p: any, idx: number) => {
-    const stock = getStockById(p.stockId || inventory[0]?.stockId || 'pine-5x10');
-    return makeScrapPart({
-      id: p.id || `sc-ai-part-${idx}`,
-      name: p.name || `חלק ${idx + 1}`,
-      stockId: stock.id,
-      dimensions: {
-        length: Number(p.length) || 600,
-        width: stock.category === 'lumber' ? stock.width : Number(p.width) || stock.width,
-        thickness: stock.thickness,
-      },
-      position: [
-        Number(p.position?.[0]) || 0,
-        Number(p.position?.[1]) || stock.thickness / 2,
-        Number(p.position?.[2]) || 0,
-      ],
-      rotation: [
-        Number(p.rotation?.[0]) || 0,
-        Number(p.rotation?.[1]) || 0,
-        Number(p.rotation?.[2]) || 0,
-      ],
-      groupId: p.groupId || builtGroups[0]?.id || null,
-    });
-  });
-
-  const sanitized = sanitizeAndAuditGeneratedModel(builtParts, builtGroups);
-  return {
-    productName: parsed.productName || 'פרויקט מותאם משאריות עץ',
-    parts: sanitized.parts,
-    groups: sanitized.groups,
-    audit: sanitized.audit,
+  const allSuggestions = generateScrapProjectSuggestions(inventory);
+  const archMap: Record<string, string> = {
+    bench: 'scrap-bench',
+    plant_stand: 'scrap-plant-stand',
+    coffee_table: 'scrap-coffee-table',
+    herb_box: 'scrap-herb-box',
   };
+  const chosenId = archMap[parsed.archetype] || 'scrap-bench';
+  const chosen =
+    allSuggestions.find((s) => s.id === chosenId) || allSuggestions[0];
+
+  const prod = { ...chosen.product };
+  if (parsed.productName) prod.productName = String(parsed.productName);
+  if (parsed.explanationHe) {
+    prod.audit.fixesApplied.unshift(String(parsed.explanationHe));
+  }
+  return prod;
 }
