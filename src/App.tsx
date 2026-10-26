@@ -20,6 +20,9 @@ export const App: React.FC = () => {
   );
   const moveSelectedDelta = useProjectStore((s) => s.moveSelectedDelta);
   const dropSelectedToFloor = useProjectStore((s) => s.dropSelectedToFloor);
+  const selectAll = useProjectStore((s) => s.selectAll);
+  const selectPart = useProjectStore((s) => s.selectPart);
+  const requestCameraView = useProjectStore((s) => s.requestCameraView);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -28,27 +31,44 @@ export const App: React.FC = () => {
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'SELECT' ||
-          target.tagName === 'TEXTAREA')
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
       ) {
         return;
       }
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      const keyLower = e.key.toLowerCase();
+      const isZ = e.code === 'KeyZ' || keyLower === 'z' || e.key === 'ז';
+      const isY = e.code === 'KeyY' || keyLower === 'y' || e.key === 'ט';
+      const isD = e.code === 'KeyD' || keyLower === 'd' || e.key === 'ג';
+      const isG = e.code === 'KeyG' || keyLower === 'g' || e.key === 'ע';
+      const isA = e.code === 'KeyA' || keyLower === 'a' || e.key === 'ש';
+      const isF = e.code === 'KeyF' || keyLower === 'f' || e.key === 'כ';
+
+      if ((e.ctrlKey || e.metaKey) && isZ) {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      } else if ((e.ctrlKey || e.metaKey) && isY) {
         e.preventDefault();
         redo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+      } else if ((e.ctrlKey || e.metaKey) && isD) {
         e.preventDefault();
         duplicateSelected();
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'd' || e.key === 'D' || e.key === 'ג')) {
-        e.preventDefault();
-        dropSelectedToFloor();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+      } else if ((e.ctrlKey || e.metaKey) && isG) {
         e.preventDefault();
         createGroupFromSelected();
+      } else if ((e.ctrlKey || e.metaKey) && isA) {
+        e.preventDefault();
+        selectAll();
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isD) {
+        e.preventDefault();
+        dropSelectedToFloor();
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isF) {
+        e.preventDefault();
+        requestCameraView('fit');
+      } else if (e.key === 'Escape') {
+        selectPart(null);
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         deleteSelected();
@@ -76,6 +96,9 @@ export const App: React.FC = () => {
     createGroupFromSelected,
     moveSelectedDelta,
     dropSelectedToFloor,
+    selectAll,
+    selectPart,
+    requestCameraView,
   ]);
 
   return (
