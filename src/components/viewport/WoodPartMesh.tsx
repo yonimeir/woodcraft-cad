@@ -93,7 +93,23 @@ export const WoodPartMesh: React.FC<Props> = ({
     ? '#fde047'
     : '#1e293b';
 
+  const hasGizmoInRay = (e: ThreeEvent<PointerEvent>): boolean => {
+    for (const hit of e.intersections) {
+      let cur: THREE.Object3D | null = hit.object;
+      while (cur) {
+        if (cur.userData?.isGizmoHandle) return true;
+        cur = cur.parent;
+      }
+    }
+    return false;
+  };
+
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    // CRITICAL FIX: Never let a beam in front of or behind a gizmo handle steal the click!
+    if (hasGizmoInRay(e)) {
+      return;
+    }
+
     e.stopPropagation();
     const isMulti = e.ctrlKey || e.metaKey;
     selectPart(part.id, isMulti);
@@ -229,6 +245,10 @@ export const WoodPartMesh: React.FC<Props> = ({
         castShadow
         receiveShadow
         onPointerOver={(e) => {
+          if (hasGizmoInRay(e)) {
+            setHovered(false);
+            return;
+          }
           e.stopPropagation();
           setHovered(true);
         }}

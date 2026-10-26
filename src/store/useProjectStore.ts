@@ -49,7 +49,7 @@ export type CameraViewPreset =
   | 'zoom-out'
   | 'fit';
 
-export type GizmoMode = 'move' | 'stretch' | 'rotate';
+export type GizmoMode = 'tinkercad' | 'move' | 'stretch' | 'rotate';
 
 interface ProjectState {
   projectName: string;
@@ -114,6 +114,7 @@ interface ProjectState {
     recordHistory?: boolean
   ) => void;
   moveSelectedDelta: (delta: [number, number, number], recordHistory?: boolean) => void;
+  dropSelectedToFloor: () => void;
   duplicateSelected: () => void;
   deleteSelected: () => void;
 
@@ -272,7 +273,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   selectedIds: initial.parts[0] ? [initial.parts[0].id] : [],
   activeNotePartId: null,
   activeView: '3d',
-  gizmoMode: 'move',
+  gizmoMode: 'tinkercad',
   unitMode: 'mm',
   showLiveDimensions: false,
   snapEnabled: true,
@@ -612,6 +613,27 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ parts: nextParts });
     get().validateAndCleanDados();
     saveToLocalStorage({ ...get(), parts: get().parts });
+  },
+
+  dropSelectedToFloor: () => {
+    const { parts, selectedIds } = get();
+    if (selectedIds.length === 0) return;
+    get().pushHistory();
+
+    const nextParts = parts.map((p) => {
+      if (!selectedIds.includes(p.id) || p.locked) return p;
+      const b = getPartWorldBounds(p);
+      const nextY = Math.round((p.position[1] - b.min[1]) * 10) / 10;
+      return {
+        ...p,
+        position: [p.position[0], nextY, p.position[2]] as [number, number, number],
+      };
+    });
+
+    set({ parts: nextParts });
+    get().validateAndCleanDados();
+    saveToLocalStorage({ ...get(), parts: get().parts });
+    get().addToast('החלק הונח צמוד לרצפה (Y=0)', 'info');
   },
 
   duplicateSelected: () => {

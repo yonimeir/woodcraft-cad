@@ -19,6 +19,7 @@ export const App: React.FC = () => {
     (s) => s.createGroupFromSelected
   );
   const moveSelectedDelta = useProjectStore((s) => s.moveSelectedDelta);
+  const dropSelectedToFloor = useProjectStore((s) => s.dropSelectedToFloor);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -42,6 +43,9 @@ export const App: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         duplicateSelected();
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'd' || e.key === 'D' || e.key === 'ג')) {
+        e.preventDefault();
+        dropSelectedToFloor();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         createGroupFromSelected();
@@ -71,6 +75,7 @@ export const App: React.FC = () => {
     deleteSelected,
     createGroupFromSelected,
     moveSelectedDelta,
+    dropSelectedToFloor,
   ]);
 
   return (

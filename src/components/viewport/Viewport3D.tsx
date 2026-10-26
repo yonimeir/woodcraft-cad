@@ -221,15 +221,27 @@ export const Viewport3D: React.FC = () => {
       {/* Tinkercad-style Circular Buttons below the 3D ViewCube */}
       <ViewCubeOverlay />
 
-      {/* Top-Center Clean Gizmo Mode Bar (Move/Height vs Stretch vs Rotate) */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-xl select-none">
+      {/* Top-Center Clean Gizmo Mode Bar (Tinkercad Unified vs Isolated Modes) */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-xl select-none">
         <span className="text-[11px] text-slate-400 font-medium pl-1 border-l border-slate-800">
-          כלי שליטה ב-3D:
+          שליטה ב-3D:
         </span>
         <button
           type="button"
+          onClick={() => setGizmoMode('tinkercad')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
+            gizmoMode === 'tinkercad'
+              ? 'bg-amber-400 text-slate-950 shadow'
+              : 'text-slate-300 hover:bg-slate-800'
+          }`}
+          title="מצב טינקרקאד מאוחד: ריבועי מתיחה (↔), הקלדת מידה בלחיצה, חרוט גובה (▲) וטבעות סיבוב יחד!"
+        >
+          ✨ הכל יחד (טינקרקאד)
+        </button>
+        <button
+          type="button"
           onClick={() => setGizmoMode('move')}
-          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+          className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
             gizmoMode === 'move'
               ? 'bg-emerald-500 text-slate-950 shadow'
               : 'text-slate-300 hover:bg-slate-800'
@@ -237,25 +249,25 @@ export const Viewport3D: React.FC = () => {
           title="הזזה בצירים X/Z והרמה/הורדה לגובה (ציר Y ירוק או החזקת Shift+גרירה)"
         >
           <Move className="w-3.5 h-3.5" />
-          הזזה וגובה (Y↕)
+          הזזה וגובה
         </button>
         <button
           type="button"
           onClick={() => setGizmoMode('stretch')}
-          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+          className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
             gizmoMode === 'stretch'
               ? 'bg-amber-500 text-slate-950 shadow'
               : 'text-slate-300 hover:bg-slate-800'
           }`}
-          title="ידיות מתיחה לשינוי אורך/רוחב הקורה"
+          title="ריבועי מתיחה לבנים/צהובים בקצוות הקורה והקלדת מידה ישירה"
         >
           <Maximize2 className="w-3.5 h-3.5" />
-          מתיחת אורך
+          מתיחה ומידות
         </button>
         <button
           type="button"
           onClick={() => setGizmoMode('rotate')}
-          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+          className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
             gizmoMode === 'rotate'
               ? 'bg-pink-500 text-white shadow'
               : 'text-slate-300 hover:bg-slate-800'
@@ -263,7 +275,7 @@ export const Viewport3D: React.FC = () => {
           title="טבעות סיבוב סביב נקודת העוגן הנבחרת (🎯)"
         >
           <RotateCw className="w-3.5 h-3.5" />
-          סיבוב (סביב עוגן 🎯)
+          סיבוב (🎯)
         </button>
       </div>
 
