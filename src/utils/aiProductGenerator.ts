@@ -1669,21 +1669,33 @@ async function discoverAvailableGeminiModels(apiKey: string): Promise<string[]> 
           name.includes('gemini') &&
           !name.includes('embedding') &&
           !name.includes('imagen') &&
+          !name.includes('image') &&
+          !name.includes('vision') &&
           !name.includes('veo') &&
           !name.includes('tts') &&
-          !name.includes('audio')
+          !name.includes('audio') &&
+          !name.includes('live') &&
+          !name.includes('robotics') &&
+          !name.includes('computer-use') &&
+          !name.includes('thinking') &&
+          !name.includes('learnlm') &&
+          !name.includes('aqa')
         );
       })
       .map((m) => String(m.name).replace(/^models\//, ''));
 
-    // Prioritize fast modern flash/pro models
+    // Prioritize standard Free-Tier text/multimodal models (avoid experimental/preview variants unless needed)
     validNames.sort((a, b) => {
       const score = (n: string) => {
         if (n === 'gemini-2.5-flash') return 100;
-        if (n.startsWith('gemini-2.5-flash')) return 95;
-        if (n.startsWith('gemini-3-flash')) return 92;
-        if (n === 'gemini-2.0-flash') return 90;
-        if (n.includes('flash')) return 80;
+        if (n === 'gemini-2.5-flash-lite') return 98;
+        if (n === 'gemini-2.0-flash') return 96;
+        if (n === 'gemini-2.0-flash-lite') return 94;
+        if (n === 'gemini-flash-latest') return 92;
+        if (n === 'gemini-flash-lite-latest') return 90;
+        if (n === 'gemini-2.5-pro') return 86;
+        if (n.includes('exp') || n.includes('preview')) return 35; // Penalize preview/exp models which often have 0 free-tier quota
+        if (n.includes('flash')) return 78;
         if (n.includes('pro')) return 70;
         return 50;
       };
@@ -1704,7 +1716,7 @@ async function discoverAvailableGeminiModels(apiKey: string): Promise<string[]> 
 
 /**
  * Helper that calls Google Generative Language API with dynamic `ListModels` discovery
- * + automatic fallback, and safely extracts JSON even if wrapped in prose or markdown.
+ * + automatic fallback (including 429 per-model quota fallback!), and safely extracts JSON.
  */
 export async function callGeminiJsonWithFallback(
   apiKey: string,
@@ -1716,7 +1728,7 @@ export async function callGeminiJsonWithFallback(
   let lastStatus = 0;
   let lastErrorMsg = '';
 
-  for (const modelName of candidateModels.slice(0, 5)) {
+  for (const modelName of candidateModels.slice(0, 8)) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(
       cleanKey
     )}`;
@@ -1764,16 +1776,17 @@ export async function callGeminiJsonWithFallback(
       lastErrorMsg = '';
     }
 
-    // Try next discovered model on 404, 400, or 503
+    // Try next discovered model on 404 (not found), 400 (unsupported), 429 (model-specific quota/limit:0), or 503 (overloaded)
     if (
       response.status === 404 ||
       response.status === 400 ||
+      response.status === 429 ||
       response.status === 503
     ) {
       continue;
     }
 
-    // Stop immediately on 401/403 (invalid key) or 429 (quota)
+    // Stop immediately on 401/403 (invalid API key)
     break;
   }
 
