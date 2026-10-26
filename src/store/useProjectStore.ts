@@ -145,6 +145,11 @@ interface ProjectState {
 
   // Templates & Persistence
   loadTemplate: (templateId: string) => void;
+  applyGeneratedProduct: (
+    name: string,
+    parts: Part[],
+    groups: PartGroup[]
+  ) => void;
   clearWorkspace: () => void;
   exportProjectJson: () => string;
   importProjectJson: (jsonStr: string) => boolean;
@@ -945,6 +950,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       groups,
       room,
       selectedIds: parts[0] ? [parts[0].id] : [],
+      activeNotePartId: null,
       activeSnapLines: [],
     });
     saveToLocalStorage({
@@ -955,6 +961,30 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       room,
     });
     get().addToast(`נטענה תבנית: ${tmpl.name}`, 'success');
+  },
+
+  applyGeneratedProduct: (name, parts, groups) => {
+    get().pushHistory();
+    const clonedParts: Part[] = JSON.parse(JSON.stringify(parts));
+    const clonedGroups: PartGroup[] = JSON.parse(JSON.stringify(groups));
+    set({
+      projectName: name,
+      parts: clonedParts,
+      groups: clonedGroups,
+      selectedIds: clonedParts[0] ? [clonedParts[0].id] : [],
+      activeNotePartId: null,
+      activeSnapLines: [],
+    });
+    saveToLocalStorage({
+      ...get(),
+      projectName: name,
+      parts: clonedParts,
+      groups: clonedGroups,
+    });
+    get().addToast(
+      `ג'ונרט ואומת בהצלחה: "${name}" (${clonedParts.length} חלקים)`,
+      'success'
+    );
   },
 
   clearWorkspace: () => {

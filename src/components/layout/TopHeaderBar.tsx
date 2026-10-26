@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { TemplatesModal } from '../modals/TemplatesModal';
+import { ProductGeneratorModal } from '../modals/ProductGeneratorModal';
 import {
   Box,
   Download,
@@ -12,10 +13,12 @@ import {
   Scissors,
   Undo2,
   Upload,
+  Wand2,
 } from 'lucide-react';
 
 export const TopHeaderBar: React.FC = () => {
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [generatorOpen, setGeneratorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const projectName = useProjectStore((s) => s.projectName);
@@ -86,6 +89,15 @@ export const TopHeaderBar: React.FC = () => {
             className="bg-slate-900 border border-slate-800 hover:border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-100 w-48 focus:outline-none"
             title="שם הפרויקט (נשמר אוטומטית בזיכרון המקומי)"
           />
+
+          <button
+            onClick={() => setGeneratorOpen(true)}
+            className="bg-gradient-to-l from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 shadow-md transition cursor-pointer"
+            title="מחולל מוצרים חכם (נדנדה, פרגולה, שולחן פיקניק, זולה, מיטה, אדנית, מלונה ועוד) עם בקרת איכות ויזואלית"
+          >
+            <Wand2 className="w-4 h-4" />
+            ✨ ג'נרט מוצר
+          </button>
 
           <button
             onClick={() => setTemplatesOpen(true)}
@@ -222,6 +234,10 @@ export const TopHeaderBar: React.FC = () => {
       <TemplatesModal
         isOpen={templatesOpen}
         onClose={() => setTemplatesOpen(false)}
+      />
+      <ProductGeneratorModal
+        isOpen={generatorOpen}
+        onClose={() => setGeneratorOpen(false)}
       />
     </>
   );
