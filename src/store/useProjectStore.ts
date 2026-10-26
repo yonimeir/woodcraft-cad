@@ -47,6 +47,8 @@ export type CameraViewPreset =
   | 'zoom-out'
   | 'fit';
 
+export type GizmoMode = 'move' | 'stretch' | 'rotate';
+
 interface ProjectState {
   projectName: string;
   parts: Part[];
@@ -54,6 +56,7 @@ interface ProjectState {
   selectedIds: string[];
   activeNotePartId: string | null;
   activeView: '3d' | 'workshop';
+  gizmoMode: GizmoMode;
   unitMode: 'mm' | 'cm';
   showLiveDimensions: boolean;
   snapEnabled: boolean;
@@ -70,6 +73,7 @@ interface ProjectState {
   setProjectName: (name: string) => void;
   setActiveNotePartId: (id: string | null) => void;
   setActiveView: (view: '3d' | 'workshop') => void;
+  setGizmoMode: (mode: GizmoMode) => void;
   setUnitMode: (mode: 'mm' | 'cm') => void;
   setShowLiveDimensions: (show: boolean) => void;
   setSnapEnabled: (enabled: boolean) => void;
@@ -261,8 +265,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   selectedIds: initial.parts[0] ? [initial.parts[0].id] : [],
   activeNotePartId: null,
   activeView: '3d',
+  gizmoMode: 'move',
   unitMode: 'mm',
-  showLiveDimensions: true,
+  showLiveDimensions: false,
   snapEnabled: true,
   angleSnapDeg: 15,
   activeSnapLines: [],
@@ -280,6 +285,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   setActiveNotePartId: (activeNotePartId) => set({ activeNotePartId }),
   setActiveView: (activeView) => set({ activeView }),
+  setGizmoMode: (gizmoMode) => set({ gizmoMode }),
   setUnitMode: (unitMode) => set({ unitMode }),
   setShowLiveDimensions: (showLiveDimensions) => set({ showLiveDimensions }),
   setSnapEnabled: (snapEnabled) => set({ snapEnabled, activeSnapLines: [] }),

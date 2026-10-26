@@ -28,7 +28,6 @@ export const WoodPartMesh: React.FC<Props> = ({
   allParts,
   isSelected,
   hasCollision,
-  cutLabel,
   loadWarning,
   setOrbitEnabled,
 }) => {
@@ -42,6 +41,7 @@ export const WoodPartMesh: React.FC<Props> = ({
 
   const [hovered, setHovered] = useState(false);
   const dragPlaneRef = useRef<THREE.Plane | null>(null);
+  const dragModeRef = useRef<'xz' | 'y'>('xz');
   const dragOffsetRef = useRef<THREE.Vector3>(new THREE.Vector3());
   const isDraggingRef = useRef<boolean>(false);
   const pointerDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -83,7 +83,6 @@ export const WoodPartMesh: React.FC<Props> = ({
     loadWarning &&
     (loadWarning.severity === 'critical' || loadWarning.severity === 'warning');
 
-  // Determine edge & emissive highlight color
   const edgeColor = isSelected
     ? '#f59e0b'
     : hasSevereLoad
@@ -96,7 +95,7 @@ export const WoodPartMesh: React.FC<Props> = ({
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
+    const isMulti = e.ctrlKey || e.metaKey;
     selectPart(part.id, isMulti);
 
     if (part.locked) return;
@@ -104,18 +103,36 @@ export const WoodPartMesh: React.FC<Props> = ({
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     (e.target as Element)?.setPointerCapture?.(e.pointerId);
 
-    // Prepare horizontal drag plane at the part's current Y elevation
-    const plane = new THREE.Plane(
-      new THREE.Vector3(0, 1, 0),
-      -part.position[1]
-    );
-    raycaster.setFromCamera(pointer, camera);
-    const hitPoint = new THREE.Vector3();
-    if (raycaster.ray.intersectPlane(plane, hitPoint)) {
-      dragPlaneRef.current = plane;
-      dragOffsetRef.current
-        .set(...part.position)
-        .sub(hitPoint);
+    // If holding Alt or Shift, drag vertically along Y axis; otherwise drag horizontally on XZ plane
+    if (e.altKey || e.shiftKey) {
+      dragModeRef.current = 'y';
+      const camDir = new THREE.Vector3();
+      camera.getWorldDirection(camDir);
+      camDir.y = 0;
+      if (camDir.lengthSq() < 0.01) camDir.set(0, 0, 1);
+      camDir.normalize();
+      const vPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+        camDir,
+        new THREE.Vector3(...part.position)
+      );
+      raycaster.setFromCamera(pointer, camera);
+      const hitPoint = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(vPlane, hitPoint)) {
+        dragPlaneRef.current = vPlane;
+        dragOffsetRef.current.set(...part.position).sub(hitPoint);
+      }
+    } else {
+      dragModeRef.current = 'xz';
+      const plane = new THREE.Plane(
+        new THREE.Vector3(0, 1, 0),
+        -part.position[1]
+      );
+      raycaster.setFromCamera(pointer, camera);
+      const hitPoint = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(plane, hitPoint)) {
+        dragPlaneRef.current = plane;
+        dragOffsetRef.current.set(...part.position).sub(hitPoint);
+      }
     }
   };
 
@@ -137,12 +154,21 @@ export const WoodPartMesh: React.FC<Props> = ({
       raycaster.setFromCamera(pointer, camera);
       const hitPoint = new THREE.Vector3();
       if (raycaster.ray.intersectPlane(dragPlaneRef.current, hitPoint)) {
-        const candidatePos: [number, number, number] = [
-          hitPoint.x + dragOffsetRef.current.x,
-          part.position[1],
-          hitPoint.z + dragOffsetRef.current.z,
-        ];
-        movePartWithSnap(part.id, candidatePos, false);
+        if (dragModeRef.current === 'y') {
+          const candidatePos: [number, number, number] = [
+            part.position[0],
+            hitPoint.y + dragOffsetRef.current.y,
+            part.position[2],
+          ];
+          movePartWithSnap(part.id, candidatePos, false);
+        } else {
+          const candidatePos: [number, number, number] = [
+            hitPoint.x + dragOffsetRef.current.x,
+            part.position[1],
+            hitPoint.z + dragOffsetRef.current.z,
+          ];
+          movePartWithSnap(part.id, candidatePos, false);
+        }
       }
     }
   };
@@ -226,7 +252,7 @@ export const WoodPartMesh: React.FC<Props> = ({
               : '#000000'
           }
           emissiveIntensity={
-            hasSevereLoad ? 0.25 : isSelected ? 0.14 : hasCollision ? 0.18 : 0
+            hasSevereLoad ? 0.22 : isSelected ? 0.14 : hasCollision ? 0.16 : 0
           }
         />
         <Edges
@@ -248,49 +274,33 @@ export const WoodPartMesh: React.FC<Props> = ({
         </mesh>
       ))}
 
-      {/* Compact Part Cut-List Letter Badge & Clickable Warning/Collision Icon */}
-      <Html position={[0, halfT + 16, 0]} center distanceFactor={2300}>
-        <div className="flex items-center gap-1 select-none">
-          <span
-            className={`px-1.5 py-0.2 rounded text-[11px] font-mono font-bold shadow border pointer-events-none ${
-              isSelected
-                ? 'bg-amber-500 text-slate-950 border-amber-200'
-                : 'bg-slate-900/85 text-slate-200 border-slate-600/80'
+      {/* ONLY render a small clickable ⚠️ button when there's an actual engineering warning or collision */}
+      {(hasSevereLoad || hasCollision) && (
+        <Html position={[0, halfT + 28, 0]} center>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              selectPart(part.id);
+              setActiveNotePartId(
+                activeNotePartId === part.id ? null : part.id
+              );
+            }}
+            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border transition cursor-pointer ${
+              hasSevereLoad
+                ? 'bg-red-600 hover:bg-red-500 text-white border-red-200 animate-bounce'
+                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-200'
             }`}
+            title={
+              hasSevereLoad
+                ? 'לחץ לפתיחת הערת עומסים ושקיעה על קורה זו'
+                : 'לחץ לפתיחת אפשרויות חיתוך מגרעת (Half-Lap) במפגש הקורות'
+            }
           >
-            {cutLabel}
-          </span>
-          {part.locked && (
-            <span className="bg-slate-900/90 text-amber-400 px-1 rounded text-[10px] pointer-events-none">
-              🔒
-            </span>
-          )}
-          {(hasSevereLoad || hasCollision) && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                selectPart(part.id);
-                setActiveNotePartId(
-                  activeNotePartId === part.id ? null : part.id
-                );
-              }}
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border transition cursor-pointer pointer-events-auto ${
-                hasSevereLoad
-                  ? 'bg-red-600 hover:bg-red-500 text-white border-red-200 animate-bounce'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-200'
-              }`}
-              title={
-                hasSevereLoad
-                  ? 'לחץ לפתיחת הערת עומסים ושקיעה על קורה זו'
-                  : 'לחץ לפתיחת אפשרויות חיתוך מגרעת (Half-Lap) במפגש הקורות'
-              }
-            >
-              ⚠️
-            </button>
-          )}
-        </div>
-      </Html>
+            ⚠️
+          </button>
+        </Html>
+      )}
     </group>
   );
 };

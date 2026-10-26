@@ -5,6 +5,7 @@ import {
   analyzeStructuralLoads,
   calculateKregRecommendation,
   detectPartCollisions,
+  getPartWorldBounds,
   resolvePartLengths,
 } from '../../utils/geometryAndEngineering';
 import {
@@ -56,6 +57,12 @@ export const LeftInspectorPanel: React.FC = () => {
   const resolvedLengths = selectedPart
     ? resolvePartLengths(selectedPart)
     : undefined;
+  const selectedBounds = selectedPart
+    ? getPartWorldBounds(selectedPart)
+    : undefined;
+  const floorHeightMm = selectedBounds
+    ? Math.max(0, Math.round(selectedBounds.min[1]))
+    : 0;
   const kregRec = selectedPart
     ? calculateKregRecommendation(selectedPart)
     : null;
@@ -324,6 +331,83 @@ export const LeftInspectorPanel: React.FC = () => {
                       className="w-full accent-amber-500 cursor-pointer"
                     />
                   )}
+                </div>
+
+                {/* Height from Floor (Y) Input + Slider + Drop to Floor button */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-emerald-400 font-semibold">
+                      גובה מהרצפה (ציר Y ↕):
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedBounds) return;
+                          const halfH = selectedBounds.size[1] / 2;
+                          updatePart(selectedPart.id, {
+                            position: [
+                              selectedPart.position[0],
+                              halfH,
+                              selectedPart.position[2],
+                            ],
+                          });
+                        }}
+                        className="bg-emerald-950 hover:bg-emerald-800 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer"
+                        title="הנח את תחתית הקורה בדיוק על הרצפה (0 מ''מ)"
+                      >
+                        הנח על הרצפה (0)
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={2500}
+                        step={5}
+                        value={floorHeightMm}
+                        onChange={(e) => {
+                          if (!selectedBounds) return;
+                          const targetBottom = Math.max(
+                            0,
+                            Number(e.target.value) || 0
+                          );
+                          const halfH = selectedBounds.size[1] / 2;
+                          updatePart(selectedPart.id, {
+                            position: [
+                              selectedPart.position[0],
+                              targetBottom + halfH,
+                              selectedPart.position[2],
+                            ],
+                          });
+                        }}
+                        className="w-18 bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-left font-mono text-xs text-emerald-300"
+                      />
+                      <span className="text-[11px] text-slate-400">מ"מ</span>
+                    </div>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1800}
+                    step={5}
+                    value={floorHeightMm}
+                    onChange={(e) => {
+                      if (!selectedBounds) return;
+                      const targetBottom = Number(e.target.value);
+                      const halfH = selectedBounds.size[1] / 2;
+                      updatePart(
+                        selectedPart.id,
+                        {
+                          position: [
+                            selectedPart.position[0],
+                            targetBottom + halfH,
+                            selectedPart.position[2],
+                          ],
+                        },
+                        false
+                      );
+                    }}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
                 </div>
 
                 {/* Width Input (Editable only for Sheet Goods; Fixed for Dimensional Lumber) */}

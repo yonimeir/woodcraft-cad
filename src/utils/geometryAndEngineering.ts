@@ -435,7 +435,7 @@ export function detectPartCollisions(parts: Part[]): CollisionPair[] {
   }
 
   const collisions: CollisionPair[] = [];
-  const epsilon = 2.0; // Ignore touching faces (< 2mm overlap)
+  const epsilon = 15.0; // Ignore touching faces and slight butt-joint overlaps (< 15mm)
 
   for (let i = 0; i < visibleParts.length; i++) {
     for (let j = i + 1; j < visibleParts.length; j++) {

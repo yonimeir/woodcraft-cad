@@ -22,6 +22,8 @@ import { RoomContextMesh } from './RoomContextMesh';
 import { ViewCubeOverlay } from './ViewCubeOverlay';
 import {
   AlertTriangle,
+  Maximize2,
+  Move,
   RotateCw,
   Scissors,
   ShieldAlert,
@@ -143,6 +145,8 @@ export const Viewport3D: React.FC = () => {
   const parts = useProjectStore((s) => s.parts);
   const selectedIds = useProjectStore((s) => s.selectedIds);
   const selectPart = useProjectStore((s) => s.selectPart);
+  const gizmoMode = useProjectStore((s) => s.gizmoMode);
+  const setGizmoMode = useProjectStore((s) => s.setGizmoMode);
   const activeNotePartId = useProjectStore((s) => s.activeNotePartId);
   const setActiveNotePartId = useProjectStore((s) => s.setActiveNotePartId);
   const createParametricDado = useProjectStore((s) => s.createParametricDado);
@@ -212,6 +216,52 @@ export const Viewport3D: React.FC = () => {
     <div className="relative w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 overflow-hidden">
       {/* Tinkercad-style Circular Buttons below the 3D ViewCube */}
       <ViewCubeOverlay />
+
+      {/* Top-Center Clean Gizmo Mode Bar (Move/Height vs Stretch vs Rotate) */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-xl select-none">
+        <span className="text-[11px] text-slate-400 font-medium pl-1 border-l border-slate-800">
+          כלי שליטה ב-3D:
+        </span>
+        <button
+          type="button"
+          onClick={() => setGizmoMode('move')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+            gizmoMode === 'move'
+              ? 'bg-emerald-500 text-slate-950 shadow'
+              : 'text-slate-300 hover:bg-slate-800'
+          }`}
+          title="הזזה בצירים X/Z והרמה/הורדה לגובה (ציר Y ירוק או החזקת Shift+גרירה)"
+        >
+          <Move className="w-3.5 h-3.5" />
+          הזזה וגובה (Y↕)
+        </button>
+        <button
+          type="button"
+          onClick={() => setGizmoMode('stretch')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+            gizmoMode === 'stretch'
+              ? 'bg-amber-500 text-slate-950 shadow'
+              : 'text-slate-300 hover:bg-slate-800'
+          }`}
+          title="ידיות מתיחה לשינוי אורך/רוחב הקורה"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+          מתיחת אורך
+        </button>
+        <button
+          type="button"
+          onClick={() => setGizmoMode('rotate')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+            gizmoMode === 'rotate'
+              ? 'bg-pink-500 text-white shadow'
+              : 'text-slate-300 hover:bg-slate-800'
+          }`}
+          title="טבעות סיבוב סביב נקודת העוגן הנבחרת (🎯)"
+        >
+          <RotateCw className="w-3.5 h-3.5" />
+          סיבוב (סביב עוגן 🎯)
+        </button>
+      </div>
 
       {/* Three.js Canvas */}
       <Canvas

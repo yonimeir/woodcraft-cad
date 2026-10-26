@@ -49,6 +49,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
   setOrbitEnabled,
 }) => {
   const { camera, raycaster, pointer } = useThree();
+  const gizmoMode = useProjectStore((s) => s.gizmoMode);
   const movePartWithSnap = useProjectStore((s) => s.movePartWithSnap);
   const stretchPartSide = useProjectStore((s) => s.stretchPartSide);
   const rotatePartWithPivot = useProjectStore((s) => s.rotatePartWithPivot);
@@ -80,15 +81,17 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       ? `${(mm / 10).toFixed(1)} ס"מ`
       : `${Math.round(mm)} מ"מ`;
 
-  // Helper to intersect current pointer ray with a drag plane
   const intersectPlane = (plane: THREE.Plane): THREE.Vector3 | null => {
     raycaster.setFromCamera(pointer, camera);
     const out = new THREE.Vector3();
     return raycaster.ray.intersectPlane(plane, out);
   };
 
-  // Start translating along X, Y, or Z world axis
-  const startAxisTranslate = (axis: 'x' | 'y' | 'z', e: ThreeEvent<PointerEvent>) => {
+  // Start translating along X, Y (Up/Down), or Z world axis
+  const startAxisTranslate = (
+    axis: 'x' | 'y' | 'z',
+    e: ThreeEvent<PointerEvent>
+  ) => {
     e.stopPropagation();
     (e.target as Element)?.setPointerCapture?.(e.pointerId);
     activePointerId.current = e.pointerId;
@@ -104,13 +107,12 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
 
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
-    // Construct a plane containing `axisDir` that faces the camera as much as possible
     const sideVec = new THREE.Vector3().crossVectors(axisDir, camDir).normalize();
     const planeNormal = new THREE.Vector3()
       .crossVectors(axisDir, sideVec)
       .normalize();
     if (planeNormal.lengthSq() < 0.01) {
-      planeNormal.set(0, 1, 0);
+      planeNormal.set(0, 0, 1);
     }
 
     const origin = new THREE.Vector3(...part.position);
@@ -142,9 +144,9 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
 
     const isLen = side === 'length-start' || side === 'length-end';
     const dirSign = side === 'length-end' || side === 'width-end' ? 1 : -1;
-    const axisVec = (isLen ? bounds.axisX.clone() : bounds.axisZ.clone()).multiplyScalar(
-      dirSign
-    );
+    const axisVec = (
+      isLen ? bounds.axisX.clone() : bounds.axisZ.clone()
+    ).multiplyScalar(dirSign);
 
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
@@ -172,7 +174,10 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
   };
 
   // Start rotating around X, Y, or Z at the selected Anchor / Pivot Point
-  const startRotateAxis = (axis: 'x' | 'y' | 'z', e: ThreeEvent<PointerEvent>) => {
+  const startRotateAxis = (
+    axis: 'x' | 'y' | 'z',
+    e: ThreeEvent<PointerEvent>
+  ) => {
     e.stopPropagation();
     (e.target as Element)?.setPointerCapture?.(e.pointerId);
     activePointerId.current = e.pointerId;
@@ -230,15 +235,21 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       if (dragState.axis === 'z') nextPos[2] += diff.z;
 
       movePartWithSnap(part.id, nextPos, false);
-      setLiveBadge(
-        `מיקום ${dragState.axis.toUpperCase()}: ${fmtLen(
-          nextPos[dragState.axis === 'x' ? 0 : dragState.axis === 'y' ? 1 : 2]
-        )}`
-      );
+      const updatedBounds = getPartWorldBounds({ ...part, position: nextPos });
+      if (dragState.axis === 'y') {
+        setLiveBadge(
+          `גובה מתחתית הקורה לרצפה: ${fmtLen(Math.max(0, updatedBounds.min[1]))}`
+        );
+      } else {
+        setLiveBadge(
+          `הזזה בציר ${dragState.axis.toUpperCase()}: ${fmtLen(
+            nextPos[dragState.axis === 'x' ? 0 : 2]
+          )}`
+        );
+      }
     } else if (dragState.kind === 'stretch') {
       const diff = hit.clone().sub(dragState.startWorldPoint);
       const projectedDelta = diff.dot(dragState.axisVec);
-      // Snap stretch to 5mm increments unless Shift is held
       const rawNewDim = dragState.initialDim + projectedDelta;
       const step = e.shiftKey ? 1 : 5;
       const snappedDim = Math.round(rawNewDim / step) * step;
@@ -246,7 +257,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       stretchPartSide(part.id, dragState.side, snappedDim, false);
       setLiveBadge(
         `${
-          dragState.side.startsWith('length') ? 'אורך' : 'רוחב'
+          dragState.side.startsWith('length') ? 'אורך חדש' : 'רוחב חדש'
         }: ${fmtLen(Math.max(50, snappedDim))}`
       );
     } else if (dragState.kind === 'rotate-axis') {
@@ -294,7 +305,17 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     setOrbitEnabled(true);
   };
 
-  // Anchor points on the part for quick 3D click selection
+  // Compute handle distances strictly OUTSIDE the part's world bounding box
+  // so no arrow or cone is ever buried inside a tall or long beam!
+  const xTipOffset = bounds.size[0] / 2 + 85;
+  const yTopOffset = bounds.size[1] / 2 + 85;
+  const zTipOffset = bounds.size[2] / 2 + 85;
+
+  const ringRadius = Math.max(
+    115,
+    Math.min(240, Math.max(outerLength, part.dimensions.width) * 0.26)
+  );
+
   const anchorCandidates: Array<{ label: string; pivot: PivotAnchor }> = [
     { label: 'מרכז החלק', pivot: { x: 0, y: 0, z: 0 } },
     { label: 'קצה שמאל (מרכז)', pivot: { x: -1, y: 0, z: 0 } },
@@ -307,223 +328,270 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     { label: 'קצה ימין-עליון', pivot: { x: 1, y: 1, z: 0 } },
   ];
 
-  const arrowDist = Math.max(140, Math.min(340, outerLength * 0.25));
-  const ringRadius = Math.max(115, Math.min(260, Math.max(outerLength, part.dimensions.width) * 0.28));
-
   return (
-    <group
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-    >
-      {/* 1. World Translation Arrows at Part Center */}
-      <group position={part.position}>
-        {/* X Axis Arrow (Red) */}
-        <group
-          onPointerDown={(e) => startAxisTranslate('x', e)}
-        >
-          <Line
-            points={[
-              [0, 0, 0],
-              [arrowDist, 0, 0],
-            ]}
-            color="#ef4444"
-            lineWidth={3.5}
-          />
-          <mesh position={[arrowDist, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
-            <coneGeometry args={[16, 42, 16]} />
-            <meshStandardMaterial color="#ef4444" emissive="#991b1b" />
-          </mesh>
-        </group>
+    <group onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+      {/* MODE 1: MOVE & ELEVATION (הזזה וגובה ✥) */}
+      {gizmoMode === 'move' && (
+        <group position={part.position}>
+          {/* Y Axis Up/Down Handle (Green - Always above the top of the part + downward cone) */}
+          <group onPointerDown={(e) => startAxisTranslate('y', e)}>
+            <Line
+              points={[
+                [0, -bounds.size[1] / 2 - 45, 0],
+                [0, yTopOffset, 0],
+              ]}
+              color="#22c55e"
+              lineWidth={4}
+              depthTest={false}
+              renderOrder={999}
+            />
+            {/* Top Up-Cone */}
+            <mesh position={[0, yTopOffset, 0]} renderOrder={999}>
+              <coneGeometry args={[22, 54, 18]} />
+              <meshBasicMaterial color="#22c55e" depthTest={false} />
+            </mesh>
+            {/* Bottom Down-Cone */}
+            <mesh
+              position={[0, -bounds.size[1] / 2 - 45, 0]}
+              rotation={[Math.PI, 0, 0]}
+              renderOrder={999}
+            >
+              <coneGeometry args={[18, 42, 18]} />
+              <meshBasicMaterial color="#16a34a" depthTest={false} />
+            </mesh>
+            {/* Generous Invisible Hit Cylinder for easy grabbing */}
+            <mesh position={[0, yTopOffset / 2, 0]} renderOrder={999}>
+              <cylinderGeometry args={[32, 32, yTopOffset + bounds.size[1] / 2 + 60, 12]} />
+              <meshBasicMaterial transparent opacity={0} depthTest={false} />
+            </mesh>
+          </group>
 
-        {/* Y Axis Elevation Arrow (Green - Tinkercad Elevation Cone) */}
-        <group
-          onPointerDown={(e) => startAxisTranslate('y', e)}
-        >
-          <Line
-            points={[
-              [0, 0, 0],
-              [0, arrowDist, 0],
-            ]}
-            color="#22c55e"
-            lineWidth={3.5}
-          />
-          <mesh position={[0, arrowDist, 0]}>
-            <coneGeometry args={[18, 46, 16]} />
-            <meshStandardMaterial color="#22c55e" emissive="#166534" />
-          </mesh>
-        </group>
+          {/* X Axis Left/Right Handle (Red) */}
+          <group onPointerDown={(e) => startAxisTranslate('x', e)}>
+            <Line
+              points={[
+                [0, 0, 0],
+                [xTipOffset, 0, 0],
+              ]}
+              color="#ef4444"
+              lineWidth={3.5}
+              depthTest={false}
+              renderOrder={999}
+            />
+            <mesh
+              position={[xTipOffset, 0, 0]}
+              rotation={[0, 0, -Math.PI / 2]}
+              renderOrder={999}
+            >
+              <coneGeometry args={[18, 46, 16]} />
+              <meshBasicMaterial color="#ef4444" depthTest={false} />
+            </mesh>
+            <mesh
+              position={[xTipOffset / 2, 0, 0]}
+              rotation={[0, 0, -Math.PI / 2]}
+              renderOrder={999}
+            >
+              <cylinderGeometry args={[28, 28, xTipOffset, 12]} />
+              <meshBasicMaterial transparent opacity={0} depthTest={false} />
+            </mesh>
+          </group>
 
-        {/* Z Axis Arrow (Blue) */}
-        <group
-          onPointerDown={(e) => startAxisTranslate('z', e)}
-        >
-          <Line
-            points={[
-              [0, 0, 0],
-              [0, 0, arrowDist],
-            ]}
-            color="#38bdf8"
-            lineWidth={3.5}
-          />
-          <mesh position={[0, 0, arrowDist]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[16, 42, 16]} />
-            <meshStandardMaterial color="#38bdf8" emissive="#075985" />
-          </mesh>
+          {/* Z Axis Front/Back Handle (Blue) */}
+          <group onPointerDown={(e) => startAxisTranslate('z', e)}>
+            <Line
+              points={[
+                [0, 0, 0],
+                [0, 0, zTipOffset],
+              ]}
+              color="#38bdf8"
+              lineWidth={3.5}
+              depthTest={false}
+              renderOrder={999}
+            />
+            <mesh
+              position={[0, 0, zTipOffset]}
+              rotation={[Math.PI / 2, 0, 0]}
+              renderOrder={999}
+            >
+              <coneGeometry args={[18, 46, 16]} />
+              <meshBasicMaterial color="#38bdf8" depthTest={false} />
+            </mesh>
+            <mesh
+              position={[0, 0, zTipOffset / 2]}
+              rotation={[Math.PI / 2, 0, 0]}
+              renderOrder={999}
+            >
+              <cylinderGeometry args={[28, 28, zTipOffset, 12]} />
+              <meshBasicMaterial transparent opacity={0} depthTest={false} />
+            </mesh>
+          </group>
         </group>
-      </group>
+      )}
 
-      {/* 2. Stretch Handles (ידיות מתיחה) in Part Local Orientation */}
-      {stock.category !== 'hardware' && (
+      {/* MODE 2: STRETCH HANDLES (מתיחת אורך/רוחב ↔) */}
+      {gizmoMode === 'stretch' && stock.category !== 'hardware' && (
         <group position={part.position} quaternion={quat}>
           {/* End +X Stretch Handle */}
           <mesh
-            position={[halfL + 18, 0, 0]}
+            position={[halfL + 22, 0, 0]}
             onPointerDown={(e) => startStretch('length-end', e)}
+            renderOrder={999}
           >
-            <boxGeometry args={[22, Math.max(26, halfT * 1.1), Math.max(32, halfW * 0.9)]} />
-            <meshStandardMaterial
-              color="#f59e0b"
-              emissive="#b45309"
-              roughness={0.3}
+            <boxGeometry
+              args={[28, Math.max(34, halfT * 1.25), Math.max(40, halfW * 0.95)]}
             />
+            <meshBasicMaterial color="#f59e0b" depthTest={false} />
           </mesh>
 
           {/* Start -X Stretch Handle */}
           <mesh
-            position={[-halfL - 18, 0, 0]}
+            position={[-halfL - 22, 0, 0]}
             onPointerDown={(e) => startStretch('length-start', e)}
+            renderOrder={999}
           >
-            <boxGeometry args={[22, Math.max(26, halfT * 1.1), Math.max(32, halfW * 0.9)]} />
-            <meshStandardMaterial
-              color="#f59e0b"
-              emissive="#b45309"
-              roughness={0.3}
+            <boxGeometry
+              args={[28, Math.max(34, halfT * 1.25), Math.max(40, halfW * 0.95)]}
             />
+            <meshBasicMaterial color="#f59e0b" depthTest={false} />
           </mesh>
 
           {/* Sheet Goods also have Width (+Z / -Z) Stretch Handles */}
           {stock.category === 'sheet' && (
             <>
               <mesh
-                position={[0, 0, halfW + 18]}
+                position={[0, 0, halfW + 22]}
                 onPointerDown={(e) => startStretch('width-end', e)}
+                renderOrder={999}
               >
-                <boxGeometry args={[Math.max(40, halfL * 0.5), Math.max(24, halfT * 1.1), 22]} />
-                <meshStandardMaterial color="#fb923c" emissive="#c2410c" />
+                <boxGeometry
+                  args={[Math.max(50, halfL * 0.5), Math.max(30, halfT * 1.2), 28]}
+                />
+                <meshBasicMaterial color="#fb923c" depthTest={false} />
               </mesh>
               <mesh
-                position={[0, 0, -halfW - 18]}
+                position={[0, 0, -halfW - 22]}
                 onPointerDown={(e) => startStretch('width-start', e)}
+                renderOrder={999}
               >
-                <boxGeometry args={[Math.max(40, halfL * 0.5), Math.max(24, halfT * 1.1), 22]} />
-                <meshStandardMaterial color="#fb923c" emissive="#c2410c" />
+                <boxGeometry
+                  args={[Math.max(50, halfL * 0.5), Math.max(30, halfT * 1.2), 28]}
+                />
+                <meshBasicMaterial color="#fb923c" depthTest={false} />
               </mesh>
             </>
           )}
-
-          {/* Optional 3D Clickable Anchor Nodes on the beam when user toggles anchor picker */}
-          {showAnchorNodes &&
-            anchorCandidates.map((cand, idx) => {
-              const isCurrent =
-                cand.pivot.x === part.pivot.x &&
-                cand.pivot.y === part.pivot.y &&
-                cand.pivot.z === part.pivot.z;
-              return (
-                <mesh
-                  key={idx}
-                  position={[
-                    cand.pivot.x * halfL,
-                    cand.pivot.y * halfT,
-                    cand.pivot.z * halfW,
-                  ]}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPartPivot(part.id, cand.pivot);
-                  }}
-                >
-                  <sphereGeometry args={[isCurrent ? 18 : 13, 16, 16]} />
-                  <meshStandardMaterial
-                    color={isCurrent ? '#ec4899' : '#fde047'}
-                    emissive={isCurrent ? '#be185d' : '#a16207'}
-                  />
-                </mesh>
-              );
-            })}
         </group>
       )}
 
-      {/* 3. Selectable Pivot / Anchor Point Pin (🎯) & 3 Axis Rotation Rings centered at Pivot! */}
-      <group position={pivotWorldPos}>
-        {/* Pivot Pin Sphere */}
-        <mesh
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowAnchorNodes((v) => !v);
-          }}
-        >
-          <sphereGeometry args={[16, 20, 20]} />
-          <meshStandardMaterial color="#ec4899" emissive="#9d174d" />
-        </mesh>
+      {/* MODE 3: ROTATION RINGS & ANCHOR POINT (סיבוב סביב עוגן ↻) */}
+      {gizmoMode === 'rotate' && (
+        <>
+          {showAnchorNodes && (
+            <group position={part.position} quaternion={quat}>
+              {anchorCandidates.map((cand, idx) => {
+                const isCurrent =
+                  cand.pivot.x === part.pivot.x &&
+                  cand.pivot.y === part.pivot.y &&
+                  cand.pivot.z === part.pivot.z;
+                return (
+                  <mesh
+                    key={idx}
+                    position={[
+                      cand.pivot.x * halfL,
+                      cand.pivot.y * halfT,
+                      cand.pivot.z * halfW,
+                    ]}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPartPivot(part.id, cand.pivot);
+                    }}
+                    renderOrder={999}
+                  >
+                    <sphereGeometry args={[isCurrent ? 20 : 14, 16, 16]} />
+                    <meshBasicMaterial
+                      color={isCurrent ? '#ec4899' : '#fde047'}
+                      depthTest={false}
+                    />
+                  </mesh>
+                );
+              })}
+            </group>
+          )}
 
-        {/* X Axis Rotation Ring (Red - YZ plane) */}
-        <mesh
-          rotation={[0, Math.PI / 2, 0]}
-          onPointerDown={(e) => startRotateAxis('x', e)}
-        >
-          <torusGeometry args={[ringRadius, 5.5, 12, 48]} />
-          <meshStandardMaterial
-            color="#ef4444"
-            emissive="#7f1d1d"
-            transparent
-            opacity={0.85}
-          />
-        </mesh>
+          <group position={pivotWorldPos}>
+            <mesh
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAnchorNodes((v) => !v);
+              }}
+              renderOrder={999}
+            >
+              <sphereGeometry args={[16, 20, 20]} />
+              <meshBasicMaterial color="#ec4899" depthTest={false} />
+            </mesh>
 
-        {/* Y Axis Rotation Ring (Green - XZ plane) */}
-        <mesh
-          rotation={[Math.PI / 2, 0, 0]}
-          onPointerDown={(e) => startRotateAxis('y', e)}
-        >
-          <torusGeometry args={[ringRadius * 1.08, 5.5, 12, 48]} />
-          <meshStandardMaterial
-            color="#22c55e"
-            emissive="#14532d"
-            transparent
-            opacity={0.85}
-          />
-        </mesh>
+            {/* X Axis Rotation Ring (Red) */}
+            <mesh
+              rotation={[0, Math.PI / 2, 0]}
+              onPointerDown={(e) => startRotateAxis('x', e)}
+              renderOrder={999}
+            >
+              <torusGeometry args={[ringRadius, 7, 12, 48]} />
+              <meshBasicMaterial
+                color="#ef4444"
+                transparent
+                opacity={0.9}
+                depthTest={false}
+              />
+            </mesh>
 
-        {/* Z Axis Rotation Ring (Blue - XY plane) */}
-        <mesh
-          rotation={[0, 0, 0]}
-          onPointerDown={(e) => startRotateAxis('z', e)}
-        >
-          <torusGeometry args={[ringRadius * 0.92, 5.5, 12, 48]} />
-          <meshStandardMaterial
-            color="#38bdf8"
-            emissive="#0c4a6e"
-            transparent
-            opacity={0.85}
-          />
-        </mesh>
+            {/* Y Axis Rotation Ring (Green) */}
+            <mesh
+              rotation={[Math.PI / 2, 0, 0]}
+              onPointerDown={(e) => startRotateAxis('y', e)}
+              renderOrder={999}
+            >
+              <torusGeometry args={[ringRadius * 1.1, 7, 12, 48]} />
+              <meshBasicMaterial
+                color="#22c55e"
+                transparent
+                opacity={0.9}
+                depthTest={false}
+              />
+            </mesh>
 
-        {/* Pivot Pin Badge */}
-        <Html position={[0, -28, 0]} center distanceFactor={2100}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowAnchorNodes((v) => !v);
-            }}
-            className="bg-pink-950/90 hover:bg-pink-800 text-pink-200 border border-pink-500/60 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap shadow cursor-pointer"
-            title="לחץ להצגת נקודות עוגן (Anchor Points) לבחירה ישירה על הקורה"
-          >
-            🎯 ציר סיבוב {showAnchorNodes ? '(בחר נקודה צהובה)' : '(לחץ לשינוי)'}
-          </button>
-        </Html>
-      </group>
+            {/* Z Axis Rotation Ring (Blue) */}
+            <mesh
+              rotation={[0, 0, 0]}
+              onPointerDown={(e) => startRotateAxis('z', e)}
+              renderOrder={999}
+            >
+              <torusGeometry args={[ringRadius * 0.9, 7, 12, 48]} />
+              <meshBasicMaterial
+                color="#38bdf8"
+                transparent
+                opacity={0.9}
+                depthTest={false}
+              />
+            </mesh>
 
-      {/* Live Drag Readout Tooltip */}
+            <Html position={[0, -32, 0]} center>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAnchorNodes((v) => !v);
+                }}
+                className="bg-pink-950/90 hover:bg-pink-800 text-pink-200 border border-pink-500/60 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap shadow cursor-pointer"
+              >
+                🎯 ציר סיבוב {showAnchorNodes ? '(בחר נקודה צהובה)' : '(לחץ לשינוי)'}
+              </button>
+            </Html>
+          </group>
+        </>
+      )}
+
+      {/* Clean Compact Drag Readout Tooltip */}
       {liveBadge && (
         <Html
           position={[
@@ -533,7 +601,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
           ]}
           center
         >
-          <div className="bg-amber-500 text-slate-950 font-bold font-mono text-xs px-3 py-1 rounded-lg shadow-xl border border-amber-200 whitespace-nowrap">
+          <div className="bg-amber-500 text-slate-950 font-bold font-mono text-xs px-2.5 py-1 rounded-lg shadow-xl border border-amber-200 whitespace-nowrap pointer-events-none">
             {liveBadge}
           </div>
         </Html>

@@ -101,12 +101,8 @@ export const RoomContextMesh: React.FC = () => {
               <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
             </mesh>
           )}
-          <Html
-            position={[0, H + 70, -halfD]}
-            center
-            distanceFactor={2600}
-          >
-            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2.5 py-0.5 rounded-full text-xs font-mono whitespace-nowrap">
+          <Html position={[0, H + 70, -halfD]} center>
+            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono whitespace-nowrap pointer-events-none">
               קיר אחורי: {fmt(room.width)} × גובה {fmt(H)}
             </div>
           </Html>
@@ -146,12 +142,8 @@ export const RoomContextMesh: React.FC = () => {
               <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
             </mesh>
           )}
-          <Html
-            position={[-halfW, H + 70, 0]}
-            center
-            distanceFactor={2600}
-          >
-            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2.5 py-0.5 rounded-full text-xs font-mono whitespace-nowrap">
+          <Html position={[-halfW, H + 70, 0]} center>
+            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono whitespace-nowrap pointer-events-none">
               קיר שמאל: עומק {fmt(room.depth)}
             </div>
           </Html>
@@ -191,12 +183,8 @@ export const RoomContextMesh: React.FC = () => {
               <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
             </mesh>
           )}
-          <Html
-            position={[halfW, H + 70, 0]}
-            center
-            distanceFactor={2600}
-          >
-            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2.5 py-0.5 rounded-full text-xs font-mono whitespace-nowrap">
+          <Html position={[halfW, H + 70, 0]} center>
+            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono whitespace-nowrap pointer-events-none">
               קיר ימין: עומק {fmt(room.depth)}
             </div>
           </Html>
@@ -233,8 +221,8 @@ export const RoomContextMesh: React.FC = () => {
                 roughness={isWindow ? 0.2 : 0.6}
               />
             </mesh>
-            <Html position={[0, 0, obs.depth / 2 + 10]} center distanceFactor={2200}>
-              <div className="bg-slate-950/90 text-slate-100 border border-slate-600 px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap shadow">
+            <Html position={[0, 0, obs.depth / 2 + 10]} center>
+              <div className="bg-slate-950/90 text-slate-100 border border-slate-600 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap shadow pointer-events-none">
                 {obs.name} ({fmt(obs.width)}×{fmt(obs.height)})
               </div>
             </Html>
