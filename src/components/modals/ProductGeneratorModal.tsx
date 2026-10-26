@@ -6,8 +6,15 @@ import {
   generateWithGeminiAI,
 } from '../../utils/aiProductGenerator';
 import {
+  inspectAndFixWithGeminiVision,
+  renderAndValidateMultiAngle,
+  VisualInspectionResult,
+} from '../../utils/visualMultiAngleValidator';
+import {
+  Camera,
   CheckCircle2,
   Cpu,
+  Eye,
   Layers,
   ShieldCheck,
   Sliders,
@@ -94,79 +101,152 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [apiKey, setApiKey] = useState<string>(
     () => localStorage.getItem('woodcraft_gemini_key') || ''
   );
-  const [loadingAI, setLoadingAI] = useState<boolean>(false);
+  const [loadingStage, setLoadingStage] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiOverrideResult, setAiOverrideResult] =
     useState<GeneratedProductResult | null>(null);
+  const [visionCustomSummary, setVisionCustomSummary] = useState<string | null>(
+    null
+  );
 
-  // Live parametric generation + Stage 2 Geometric & Visual Quality Audit
-  const livePreview: GeneratedProductResult = useMemo(() => {
-    if (aiOverrideResult) return aiOverrideResult;
-    return generateProductSmart({
-      prompt,
-      customWidthMm: customW,
-      customDepthMm: customD,
-      customHeightMm: customH,
-      species,
-    });
-  }, [prompt, customW, customD, customH, species, aiOverrideResult]);
+  // Stage 1 (Parametric/AI Generation) + Stage 2 (Multi-Angle 3D Offscreen Screenshot Rendering & Pixel Inspection)
+  const { product, visualReport } = useMemo<{
+    product: GeneratedProductResult;
+    visualReport: VisualInspectionResult;
+  }>(() => {
+    const baseProd =
+      aiOverrideResult ||
+      generateProductSmart({
+        prompt,
+        customWidthMm: customW,
+        customDepthMm: customD,
+        customHeightMm: customH,
+        species,
+      });
+
+    if (!isOpen) {
+      return {
+        product: baseProd,
+        visualReport: {
+          screenshots: [],
+          overallVisualScorePct: 100,
+          visualFixesApplied: [],
+          visionCritiqueSummaryHe: '',
+          passedVisualCheck: true,
+        },
+      };
+    }
+
+    const validated = renderAndValidateMultiAngle(
+      baseProd.parts,
+      baseProd.groups
+    );
+
+    return {
+      product: {
+        ...baseProd,
+        parts: validated.parts,
+        groups: validated.groups,
+      },
+      visualReport: validated.visualReport,
+    };
+  }, [
+    isOpen,
+    prompt,
+    customW,
+    customD,
+    customH,
+    species,
+    aiOverrideResult,
+  ]);
 
   if (!isOpen) return null;
 
   const handleSelectPreset = (preset: (typeof PRESET_PROMPTS)[number]) => {
     setAiOverrideResult(null);
+    setVisionCustomSummary(null);
     setPrompt(preset.prompt);
     setCustomW(preset.defaultW);
     setCustomD(preset.defaultD);
     setCustomH(preset.defaultH);
   };
 
+  // Run Cloud AI + Multi-Angle Vision Verification without closing modal so user can inspect the 4 screenshots
+  const handleRunCloudVisionPreview = async () => {
+    if (!apiKey.trim()) {
+      setAiError('נא להזין מפתח Gemini API');
+      return;
+    }
+    setAiError(null);
+    localStorage.setItem('woodcraft_gemini_key', apiKey.trim());
+
+    try {
+      setLoadingStage('שלב 1/2: מג׳נרט גיאומטריה ראשונית ב-AI...');
+      const step1 = await generateWithGeminiAI(prompt, apiKey);
+
+      setLoadingStage('שלב 2/2: מצלם מ-4 זוויות ובודק ויזואלית מול Gemini Vision...');
+      const initialShots = renderAndValidateMultiAngle(
+        step1.parts,
+        step1.groups
+      );
+
+      const visionFix = await inspectAndFixWithGeminiVision(
+        prompt,
+        initialShots.parts,
+        initialShots.groups,
+        initialShots.visualReport.screenshots,
+        apiKey
+      );
+
+      setVisionCustomSummary(visionFix.critiqueHe);
+      setAiOverrideResult({
+        productName: step1.productName,
+        parts: visionFix.fixedParts,
+        groups: visionFix.fixedGroups,
+        audit: step1.audit,
+      });
+    } catch (err: any) {
+      setAiError(err?.message || 'שגיאה בג\'ינרוט מול Gemini API');
+    } finally {
+      setLoadingStage(null);
+    }
+  };
+
   const handleApplyToWorkspace = async () => {
-    if (useCloudAI && apiKey.trim()) {
-      setLoadingAI(true);
-      setAiError(null);
-      try {
-        localStorage.setItem('woodcraft_gemini_key', apiKey.trim());
-        const res = await generateWithGeminiAI(prompt, apiKey);
-        applyGeneratedProduct(res.productName, res.parts, res.groups);
-        requestCameraView('iso');
-        onClose();
-      } catch (err: any) {
-        setAiError(err?.message || 'שגיאה בג\'ינרוט מול Gemini API');
-      } finally {
-        setLoadingAI(false);
-      }
+    if (useCloudAI && apiKey.trim() && !aiOverrideResult) {
+      await handleRunCloudVisionPreview();
       return;
     }
 
     applyGeneratedProduct(
-      livePreview.productName,
-      livePreview.parts,
-      livePreview.groups
+      product.productName,
+      product.parts,
+      product.groups
     );
     requestCameraView('iso');
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-gradient-to-l from-amber-500/15 via-slate-950 to-slate-950">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-gradient-to-l from-amber-500/15 via-slate-950 to-slate-950">
           <div className="flex items-center gap-2.5">
             <div className="bg-amber-500 text-slate-950 p-2 rounded-xl shadow">
               <Wand2 className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-                <span>מחולל מוצרים חכם + בקרת איכות ויזואלית (Product Generator)</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                  כולל יישור קצוות אוטומטי
+                <span>מחולל מוצרים חכם + בקרת צילומי מסך מ-4 זוויות</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Camera className="w-3 h-3" />
+                  אימות ויזואלי מלא
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                בחר מוצר או תאר אותו במילים – המערכת תחשב את כל הקורות, תבצע בדיקת
-                יישור ויזואלית (ללא קרשים בולטים או מרחפים), ותפתח אותו לעריכה חופשית.
+                המערכת מרנדרת צילומי מסך אמיתיים מ-4 זוויות (איזומטרי, חזית, צד,
+                ומבט על), סורקת פיקסלים לאיתור חריגות/ריחוף ומיישרת כל קורה.
               </p>
             </div>
           </div>
@@ -179,15 +259,15 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Body */}
-        <div className="p-5 overflow-y-auto space-y-5 flex-1">
+        <div className="p-5 overflow-y-auto space-y-4 flex-1">
           {/* 1. Quick Archetype Chips */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-xs font-bold text-amber-400 block">
               1. בחר מוצר לג'ינרוט מהיר (או הקלד חופשי למטה):
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {PRESET_PROMPTS.map((preset) => {
-                const isActive = prompt === preset.prompt;
+                const isActive = prompt === preset.prompt && !aiOverrideResult;
                 return (
                   <button
                     key={preset.id}
@@ -206,12 +286,11 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* 2. Free Prompt Input & Parametric Sliders */}
+          {/* 2. Prompt & Dimension Sliders */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Prompt & Wood Species */}
-            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-3">
+            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2.5">
               <div>
-                <label className="text-xs font-bold text-slate-200 block mb-1.5">
+                <label className="text-xs font-bold text-slate-200 block mb-1">
                   תיאור המוצר המבוקש:
                 </label>
                 <textarea
@@ -219,15 +298,16 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   value={prompt}
                   onChange={(e) => {
                     setAiOverrideResult(null);
+                    setVisionCustomSummary(null);
                     setPrompt(e.target.value);
                   }}
                   placeholder="לדוגמה: נדנדה לגינה ברוחב 200 ס''מ, פרגולה 3 על 4 מטר, שולחן פיקניק, מיטה זוגית..."
-                  className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg p-2.5 text-xs text-white focus:outline-none resize-none"
+                  className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg p-2 text-xs text-white focus:outline-none resize-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                <label className="text-xs font-bold text-slate-300 block mb-1">
                   סוג עץ מרכזי:
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -245,7 +325,7 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         setAiOverrideResult(null);
                         setSpecies(sp.id);
                       }}
-                      className={`py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                      className={`py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
                         species === sp.id
                           ? 'bg-amber-500/25 text-amber-300 border-amber-500'
                           : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
@@ -258,22 +338,17 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            {/* Parametric Dimensions Customization */}
-            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-amber-400">
                 <span className="flex items-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5" />
-                  התאמת מידות חיצוניות (במ"מ):
-                </span>
-                <span className="text-[10px] text-slate-400 font-normal">
-                  כל הקורות מתעדכנות אוטומטית
+                  התאמת מידות חיצוניות (מצלם ומאמת מחדש בזמן אמת):
                 </span>
               </div>
 
-              {/* Width */}
               <div>
-                <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-slate-300">רוחב / אורך כללי (X):</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-300">רוחב / אורך (X):</span>
                   <span className="font-mono font-bold text-amber-300">
                     {customW} מ"מ ({(customW / 10).toFixed(0)} ס"מ)
                   </span>
@@ -284,15 +359,17 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   max={4400}
                   step={50}
                   value={customW}
-                  onChange={(e) => setCustomW(Number(e.target.value))}
+                  onChange={(e) => {
+                    setAiOverrideResult(null);
+                    setCustomW(Number(e.target.value));
+                  }}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
               </div>
 
-              {/* Depth */}
               <div>
-                <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-slate-300">עומק כללי (Z):</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-300">עומק (Z):</span>
                   <span className="font-mono font-bold text-amber-300">
                     {customD} מ"מ ({(customD / 10).toFixed(0)} ס"מ)
                   </span>
@@ -303,15 +380,17 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   max={3600}
                   step={50}
                   value={customD}
-                  onChange={(e) => setCustomD(Number(e.target.value))}
+                  onChange={(e) => {
+                    setAiOverrideResult(null);
+                    setCustomD(Number(e.target.value));
+                  }}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
               </div>
 
-              {/* Height */}
               <div>
-                <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-slate-300">גובה כללי (Y):</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-300">גובה (Y):</span>
                   <span className="font-mono font-bold text-amber-300">
                     {customH} מ"מ ({(customH / 10).toFixed(0)} ס"מ)
                   </span>
@@ -322,64 +401,96 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   max={2800}
                   step={50}
                   value={customH}
-                  onChange={(e) => setCustomH(Number(e.target.value))}
+                  onChange={(e) => {
+                    setAiOverrideResult(null);
+                    setCustomH(Number(e.target.value));
+                  }}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
               </div>
             </div>
           </div>
 
-          {/* 3. STAGE-2 VISUAL & GEOMETRIC QUALITY AUDIT REPORT */}
-          <div className="bg-emerald-950/25 border border-emerald-500/40 rounded-xl p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* 3. MULTI-ANGLE SCREENSHOT VISUAL INSPECTOR (4 Live Rendered Camera Views!) */}
+          <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
               <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-300">
-                <ShieldCheck className="w-4.5 h-4.5 text-emerald-400" />
+                <Eye className="w-4 h-4 text-emerald-400" />
                 <span>
-                  שלב בקרת איכות ויישור ויזואלי אוטומטי (Visual & Geometric Sanitizer)
+                  בקרת איכות ויזואלית מ-4 זוויות צילום (Multi-Angle Screenshot Verification)
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs font-mono">
-                <span className="bg-slate-900 text-amber-300 border border-slate-700 px-2.5 py-0.5 rounded-lg">
-                  מוצר: {livePreview.productName}
+                <span className="bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2.5 py-0.5 rounded-full font-bold">
+                  ציון התאמה ויזואלי: {visualReport.overallVisualScorePct}% ✅
                 </span>
                 <span className="bg-slate-900 text-sky-300 border border-slate-700 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5" />
-                  {livePreview.parts.length} קורות ב-{livePreview.groups.length} קבוצות
+                  {product.parts.length} חלקים ב-{product.groups.length} קבוצות
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {livePreview.audit.checks.map((chk, idx) => (
+            {/* 4-Camera Screenshots Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {visualReport.screenshots.map((shot) => (
                 <div
-                  key={idx}
-                  className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 flex items-start gap-2"
+                  key={shot.id}
+                  className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-md"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-bold text-slate-100">{chk.name}</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      {chk.detail}
+                  <div className="px-2.5 py-1.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-200">
+                      {shot.titleHe}
+                    </span>
+                    <span className="text-[9px] font-mono text-amber-400">
+                      {shot.subtitleEn}
+                    </span>
+                  </div>
+
+                  <div className="relative bg-slate-950 aspect-[380/260] w-full flex items-center justify-center">
+                    <img
+                      src={shot.dataUrl}
+                      alt={shot.titleHe}
+                      className="w-full h-full object-contain"
+                    />
+                    <div className="absolute bottom-1.5 right-1.5 left-1.5 flex items-center justify-between text-[10px] font-mono bg-slate-950/85 backdrop-blur-sm px-2 py-0.5 rounded border border-slate-800">
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {shot.hasFloatingGap ? 'תוקן ריחוף' : 'רציף וללא בליטות'}
+                      </span>
+                      {(shot.id === 'front' || shot.id === 'top') && (
+                        <span className="text-sky-300">
+                          סימטריה: {shot.symmetryScorePct}%
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
 
-            {livePreview.audit.fixesApplied.length > 0 && (
-              <div className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded-lg px-3 py-1.5">
-                <strong>תיקוני יישור שבוצעו אוטומטית:</strong>{' '}
-                {livePreview.audit.fixesApplied.join(' | ')}
+            {/* Summary of visual & geometric inspection */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-950/30 border border-emerald-500/30 rounded-lg px-3 py-2 text-xs text-emerald-100">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  {visionCustomSummary || visualReport.visionCritiqueSummaryHe}
+                </span>
               </div>
-            )}
+              {visualReport.visualFixesApplied.length > 0 && (
+                <span className="text-[11px] text-amber-300 font-semibold">
+                  ({visualReport.visualFixesApplied.join(' | ')})
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* 4. Optional Cloud Gemini AI Mode for arbitrary non-standard prompts */}
+          {/* 4. Optional Cloud Gemini AI + Multimodal Vision Critic */}
           <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3 space-y-2">
             <label className="flex items-center justify-between text-xs cursor-pointer">
               <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
                 <Cpu className="w-4 h-4 text-purple-400" />
-                הפעל ג'ינרוט ענן חופשי עם Gemini API (למוצרים מיוחדים מחוץ למאגר ההנדסי)
+                ג'ינרוט חופשי בענן + שליחת 4 צילומי המסך לבדיקת Gemini Vision (למוצרים מותאמים אישית)
               </span>
               <input
                 type="checkbox"
@@ -390,14 +501,30 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </label>
 
             {useCloudAI && (
-              <div className="pt-1 space-y-1.5">
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="הזן מפתח Gemini API Key (נשמר מקומית בדפדפן בלבד)..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-100"
-                />
+              <div className="pt-1 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="הזן מפתח Gemini API Key..."
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    disabled={!!loadingStage}
+                    onClick={handleRunCloudVisionPreview}
+                    className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    ג'נרט ובדוק 4 צילומים ב-Gemini Vision
+                  </button>
+                </div>
+                {loadingStage && (
+                  <div className="text-xs text-purple-300 font-semibold animate-pulse">
+                    {loadingStage}
+                  </div>
+                )}
                 {aiError && (
                   <div className="text-xs text-red-400 font-semibold">
                     {aiError}
@@ -409,9 +536,9 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
+        <div className="px-5 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
           <span className="text-xs text-slate-400">
-            לאחר היצירה תוכל להזיז, למתוח, לסובב או לשנות כל קורה בנפרד.
+            כל הקורות אומתו מ-4 זוויות צילום וייפתחו כקבוצות עריכה מסודרות ב-3D.
           </span>
           <div className="flex items-center gap-2.5">
             <button
@@ -423,14 +550,14 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </button>
             <button
               type="button"
-              disabled={loadingAI}
+              disabled={!!loadingStage}
               onClick={handleApplyToWorkspace}
               className="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 px-5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg transition cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
-              {loadingAI
-                ? 'מג׳נרט ומיישר גיאומטריה...'
-                : `ג'נרט ופתח בעורך התלת-ממד (${livePreview.parts.length} חלקים)`}
+              {loadingStage
+                ? loadingStage
+                : `אשר ופתח בעורך התלת-ממד (${product.parts.length} חלקים)`}
             </button>
           </div>
         </div>
