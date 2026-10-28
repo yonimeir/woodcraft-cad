@@ -5,6 +5,8 @@
     font-family: 'Heebo', system-ui, -apple-system, sans-serif;
     direction: rtl;
     user-select: none;
+    background-color: #f8fafc;
+    color: #0f172a;
   }
 
   code, pre, .font-mono {
@@ -12,21 +14,21 @@
   }
 }
 
-/* Custom subtle scrollbars for dark CAD UI */
+/* Custom subtle scrollbars for clean Light CAD UI */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(241, 245, 249, 0.9);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(71, 85, 105, 0.7);
+  background: rgba(148, 163, 184, 0.75);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.8);
+  background: rgba(217, 119, 6, 0.85);
 }

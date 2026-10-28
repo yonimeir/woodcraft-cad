@@ -43,12 +43,12 @@ export interface StockProfile {
 }
 
 export interface PivotAnchor {
-  /** -1 = Start (Left/-X), 0 = Center, 1 = End (Right/+X) */
-  x: -1 | 0 | 1;
-  /** -1 = Bottom (-Y), 0 = Middle, 1 = Top (+Y) */
-  y: -1 | 0 | 1;
-  /** -1 = Back (-Z), 0 = Center, 1 = Front (+Z) */
-  z: -1 | 0 | 1;
+  /** -1 = Start (Left/-X), 0 = Center, 1 = End (Right/+X), or continuous [-1, 1] */
+  x: number;
+  /** -1 = Bottom (-Y), 0 = Middle, 1 = Top (+Y), or continuous [-1, 1] */
+  y: number;
+  /** -1 = Back (-Z), 0 = Center, 1 = Front (+Z), or continuous [-1, 1] */
+  z: number;
 }
 
 /**

@@ -50,18 +50,31 @@ export type CameraViewPreset =
   | 'fit';
 
 export type GizmoMode = 'tinkercad' | 'move' | 'stretch' | 'rotate';
+export type PartEditMode = 'move' | 'dimensions';
+export type ToolPopoverType =
+  | 'none'
+  | 'align'
+  | 'pivot'
+  | 'miter'
+  | 'pocket'
+  | 'dado'
+  | 'spacer'
+  | 'room';
 
 interface ProjectState {
   projectName: string;
   parts: Part[];
   groups: PartGroup[];
   selectedIds: string[];
+  partEditMode: PartEditMode;
+  activeToolPopover: ToolPopoverType;
   activeNotePartId: string | null;
   activeView: '3d' | 'workshop';
   gizmoMode: GizmoMode;
   unitMode: 'mm' | 'cm';
   showLiveDimensions: boolean;
   snapEnabled: boolean;
+  gridSnapStepMm: number;
   angleSnapDeg: number;
   activeSnapLines: SnapLine[];
   cameraPresetRequest: { view: CameraViewPreset; timestamp: number } | null;
@@ -75,12 +88,15 @@ interface ProjectState {
 
   // Actions
   setProjectName: (name: string) => void;
+  setPartEditMode: (mode: PartEditMode) => void;
+  setActiveToolPopover: (tool: ToolPopoverType) => void;
   setActiveNotePartId: (id: string | null) => void;
   setActiveView: (view: '3d' | 'workshop') => void;
   setGizmoMode: (mode: GizmoMode) => void;
   setUnitMode: (mode: 'mm' | 'cm') => void;
   setShowLiveDimensions: (show: boolean) => void;
   setSnapEnabled: (enabled: boolean) => void;
+  setGridSnapStepMm: (step: number) => void;
   setAngleSnapDeg: (deg: number) => void;
   setActiveSnapLines: (lines: SnapLine[]) => void;
   requestCameraView: (view: CameraViewPreset) => void;
@@ -123,9 +139,14 @@ interface ProjectState {
   duplicateSelected: () => void;
   deleteSelected: () => void;
 
-  // Grouping / Layers
+  // Grouping / Layers & Alignment
   createGroupFromSelected: (name?: string) => void;
+  ungroupSelected: () => void;
   ungroup: (groupId: string) => void;
+  alignSelectedParts: (
+    axis: 'x' | 'y' | 'z',
+    mode: 'min' | 'center' | 'max' | 'distribute'
+  ) => void;
   renameGroup: (groupId: string, name: string) => void;
   toggleGroupVisibility: (groupId: string) => void;
   toggleGroupLock: (groupId: string) => void;
@@ -275,13 +296,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   projectName: initial.projectName,
   parts: initial.parts,
   groups: initial.groups,
-  selectedIds: initial.parts[0] ? [initial.parts[0].id] : [],
+  selectedIds: [],
+  partEditMode: 'move',
+  activeToolPopover: 'none',
   activeNotePartId: null,
   activeView: '3d',
   gizmoMode: 'tinkercad',
   unitMode: 'mm',
   showLiveDimensions: false,
   snapEnabled: true,
+  gridSnapStepMm: 5,
   angleSnapDeg: 15,
   activeSnapLines: [],
   cameraPresetRequest: null,
@@ -298,12 +322,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     saveToLocalStorage({ ...get(), projectName });
   },
 
+  setPartEditMode: (partEditMode) => set({ partEditMode }),
+  setActiveToolPopover: (activeToolPopover) => set({ activeToolPopover }),
   setActiveNotePartId: (activeNotePartId) => set({ activeNotePartId }),
   setActiveView: (activeView) => set({ activeView }),
   setGizmoMode: (gizmoMode) => set({ gizmoMode }),
   setUnitMode: (unitMode) => set({ unitMode }),
   setShowLiveDimensions: (showLiveDimensions) => set({ showLiveDimensions }),
   setSnapEnabled: (snapEnabled) => set({ snapEnabled, activeSnapLines: [] }),
+  setGridSnapStepMm: (gridSnapStepMm) => set({ gridSnapStepMm }),
   setAngleSnapDeg: (angleSnapDeg) => set({ angleSnapDeg }),
   setActiveSnapLines: (activeSnapLines) => set({ activeSnapLines }),
 
@@ -369,18 +396,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   selectPart: (id, multi = false) => {
     if (!id) {
-      set({ selectedIds: [] });
+      set({ selectedIds: [], partEditMode: 'move', activeToolPopover: 'none' });
       return;
     }
     const { selectedIds } = get();
     if (multi) {
       if (selectedIds.includes(id)) {
-        set({ selectedIds: selectedIds.filter((i) => i !== id) });
+        set({ selectedIds: selectedIds.filter((i) => i !== id), partEditMode: 'move' });
       } else {
-        set({ selectedIds: [...selectedIds, id] });
+        set({ selectedIds: [...selectedIds, id], partEditMode: 'move' });
       }
     } else {
-      set({ selectedIds: [id] });
+      set({ selectedIds: [id], partEditMode: 'move' });
     }
   },
 
@@ -546,29 +573,36 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   movePartWithSnap: (id, candidatePos, recordHistory = false) => {
-    const { parts, room, snapEnabled, selectedIds } = get();
+    const { parts, room, snapEnabled, gridSnapStepMm, selectedIds } = get();
     const part = parts.find((p) => p.id === id);
     if (!part || part.locked) return;
     if (recordHistory) get().pushHistory();
 
-    let finalPos = candidatePos;
+    const step = Math.max(1, gridSnapStepMm || 1);
+    const gridPos: [number, number, number] = [
+      Math.round(candidatePos[0] / step) * step,
+      Math.round(candidatePos[1] / step) * step,
+      Math.round(candidatePos[2] / step) * step,
+    ];
+
+    let finalPos = gridPos;
     let snapLines: SnapLine[] = [];
 
     const movingIds = selectedIds.includes(id) ? selectedIds : [id];
     const otherParts = parts.filter((p) => !movingIds.includes(p.id));
 
     if (snapEnabled) {
-      const res = computeSmartSnap(part, candidatePos, otherParts, room, 18);
+      const res = computeSmartSnap(part, gridPos, otherParts, room, 18);
       finalPos = res.snappedPosition;
       snapLines = res.snapLines;
     } else {
       // Still keep above floor Y=0
-      const b = getPartWorldBounds({ ...part, position: candidatePos });
+      const b = getPartWorldBounds({ ...part, position: gridPos });
       if (b.min[1] < 0) {
         finalPos = [
-          candidatePos[0],
-          candidatePos[1] - b.min[1],
-          candidatePos[2],
+          gridPos[0],
+          gridPos[1] - b.min[1],
+          gridPos[2],
         ];
       }
     }
@@ -801,6 +835,137 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ parts: nextParts, groups: nextGroups });
     saveToLocalStorage({ ...get(), parts: nextParts, groups: nextGroups });
     get().addToast('הקבוצה פורקה ליחידות בודדות', 'info');
+  },
+
+  ungroupSelected: () => {
+    const { parts, groups, selectedIds } = get();
+    if (selectedIds.length === 0) return;
+    const groupIdsToDissolve = new Set<string>();
+    for (const p of parts) {
+      if (selectedIds.includes(p.id) && p.groupId) {
+        groupIdsToDissolve.add(p.groupId);
+      }
+    }
+    if (groupIdsToDissolve.size === 0) return;
+    get().pushHistory();
+    const nextParts = parts.map((p) =>
+      p.groupId && groupIdsToDissolve.has(p.groupId)
+        ? { ...p, groupId: null }
+        : p
+    );
+    const nextGroups = groups.filter((g) => !groupIdsToDissolve.has(g.id));
+    set({ parts: nextParts, groups: nextGroups });
+    saveToLocalStorage({ ...get(), parts: nextParts, groups: nextGroups });
+    get().addToast('הקבוצה פורקה ליחידות בודדות', 'info');
+  },
+
+  alignSelectedParts: (axis, mode) => {
+    const { parts, selectedIds } = get();
+    const selectedParts = parts.filter(
+      (p) => selectedIds.includes(p.id) && !p.locked && p.visible
+    );
+    if (selectedParts.length === 0) return;
+
+    get().pushHistory();
+    const axisIdx = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+    const boundsMap = new Map(
+      selectedParts.map((p) => [p.id, getPartWorldBounds(p)])
+    );
+
+    if (selectedParts.length === 1) {
+      // Single part: align to Workplane center (0) or floor (Y=0)
+      const p = selectedParts[0];
+      const b = boundsMap.get(p.id)!;
+      const nextPos: [number, number, number] = [...p.position];
+      if (axis === 'y' && mode === 'min') {
+        nextPos[1] = Math.round((p.position[1] - b.min[1]) * 10) / 10;
+      } else if (mode === 'center') {
+        nextPos[axisIdx] = 0;
+      }
+      const nextParts = parts.map((item) =>
+        item.id === p.id ? { ...item, position: nextPos } : item
+      );
+      set({ parts: nextParts });
+      get().validateAndCleanDados();
+      saveToLocalStorage({ ...get(), parts: nextParts });
+      get().addToast('החלק יושר למרכז משטח העבודה', 'success');
+      return;
+    }
+
+    // Multiple selected parts: Illustrator-style Align or Distribute
+    let minCoord = Infinity;
+    let maxCoord = -Infinity;
+    for (const p of selectedParts) {
+      const b = boundsMap.get(p.id)!;
+      if (b.min[axisIdx] < minCoord) minCoord = b.min[axisIdx];
+      if (b.max[axisIdx] > maxCoord) maxCoord = b.max[axisIdx];
+    }
+    const midCoord = (minCoord + maxCoord) / 2;
+
+    if (mode === 'distribute') {
+      if (selectedParts.length < 3) {
+        get().addToast('בחר לפחות 3 חלקים לפיזור במרווחים שווים', 'info');
+        return;
+      }
+      const sorted = [...selectedParts].sort(
+        (a, b) =>
+          boundsMap.get(a.id)!.center[axisIdx] -
+          boundsMap.get(b.id)!.center[axisIdx]
+      );
+      const firstB = boundsMap.get(sorted[0].id)!;
+      const lastB = boundsMap.get(sorted[sorted.length - 1].id)!;
+      const totalSpan = lastB.min[axisIdx] - firstB.max[axisIdx];
+      const innerThicknessSum = sorted
+        .slice(1, -1)
+        .reduce((acc, p) => acc + boundsMap.get(p.id)!.size[axisIdx], 0);
+      const gap = (totalSpan - innerThicknessSum) / (sorted.length - 1);
+
+      let cursor = firstB.max[axisIdx] + gap;
+      const newPosById = new Map<string, [number, number, number]>();
+      for (let i = 1; i < sorted.length - 1; i++) {
+        const p = sorted[i];
+        const b = boundsMap.get(p.id)!;
+        const targetCenter = cursor + b.size[axisIdx] / 2;
+        const delta = targetCenter - b.center[axisIdx];
+        const np: [number, number, number] = [...p.position];
+        np[axisIdx] = Math.round((np[axisIdx] + delta) * 10) / 10;
+        newPosById.set(p.id, np);
+        cursor += b.size[axisIdx] + gap;
+      }
+
+      const nextParts = parts.map((p) =>
+        newPosById.has(p.id) ? { ...p, position: newPosById.get(p.id)! } : p
+      );
+      set({ parts: nextParts });
+      get().validateAndCleanDados();
+      saveToLocalStorage({ ...get(), parts: nextParts });
+      get().addToast(
+        `החלקים פוזרו במרווח שווה בציר ${axis.toUpperCase()}`,
+        'success'
+      );
+      return;
+    }
+
+    const nextParts = parts.map((p) => {
+      if (!boundsMap.has(p.id)) return p;
+      const b = boundsMap.get(p.id)!;
+      let delta = 0;
+      if (mode === 'min') delta = minCoord - b.min[axisIdx];
+      else if (mode === 'max') delta = maxCoord - b.max[axisIdx];
+      else if (mode === 'center') delta = midCoord - b.center[axisIdx];
+
+      const np: [number, number, number] = [...p.position];
+      np[axisIdx] = Math.round((np[axisIdx] + delta) * 10) / 10;
+      return { ...p, position: np };
+    });
+
+    set({ parts: nextParts });
+    get().validateAndCleanDados();
+    saveToLocalStorage({ ...get(), parts: nextParts });
+    get().addToast(
+      `יושרו ${selectedParts.length} חלקים בציר ${axis.toUpperCase()}`,
+      'success'
+    );
   },
 
   renameGroup: (groupId, name) => {

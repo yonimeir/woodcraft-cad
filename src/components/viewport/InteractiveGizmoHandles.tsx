@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ThreeEvent, useThree } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
-import { Part, PivotAnchor } from '../../types/woodcraft';
+import { Part } from '../../types/woodcraft';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getStockById } from '../../data/stockLibrary';
 import {
@@ -11,6 +11,7 @@ import {
   getPivotWorldPosition,
   resolvePartLengths,
 } from '../../utils/geometryAndEngineering';
+import { IconPivotTarget } from '../icons/WoodCraftIcons';
 
 interface Props {
   part: Part;
@@ -21,8 +22,7 @@ type StretchSide = 'length-start' | 'length-end' | 'width-start' | 'width-end';
 
 type DragState =
   | {
-      kind: 'translate-axis';
-      axis: 'x' | 'y' | 'z';
+      kind: 'translate-y';
       startWorldPoint: THREE.Vector3;
       initialPartPos: [number, number, number];
       plane: THREE.Plane;
@@ -44,6 +44,10 @@ type DragState =
       plane: THREE.Plane;
       uVec: THREE.Vector3;
       vVec: THREE.Vector3;
+    }
+  | {
+      kind: 'drag-pivot';
+      plane: THREE.Plane;
     };
 
 export const InteractiveGizmoHandles: React.FC<Props> = ({
@@ -51,12 +55,11 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
   setOrbitEnabled,
 }) => {
   const { camera, gl } = useThree();
-  const gizmoMode = useProjectStore((s) => s.gizmoMode);
+  const partEditMode = useProjectStore((s) => s.partEditMode);
   const movePartWithSnap = useProjectStore((s) => s.movePartWithSnap);
   const stretchPartSide = useProjectStore((s) => s.stretchPartSide);
   const rotatePartWithPivot = useProjectStore((s) => s.rotatePartWithPivot);
   const setPartPivot = useProjectStore((s) => s.setPartPivot);
-  const dropSelectedToFloor = useProjectStore((s) => s.dropSelectedToFloor);
   const pushHistory = useProjectStore((s) => s.pushHistory);
   const setActiveSnapLines = useProjectStore((s) => s.setActiveSnapLines);
   const angleSnapDeg = useProjectStore((s) => s.angleSnapDeg);
@@ -64,13 +67,14 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [liveBadge, setLiveBadge] = useState<string | null>(null);
-  const [showAnchorNodes, setShowAnchorNodes] = useState<boolean>(false);
+  const [coneHovered, setConeHovered] = useState(false);
   const [hoveredStretchSide, setHoveredStretchSide] =
     useState<StretchSide | null>(null);
   const [activeStretchSide, setActiveStretchSide] =
     useState<StretchSide>('length-end');
+  const [hoveredArc, setHoveredArc] = useState<'x' | 'y' | 'z' | null>(null);
 
-  // Tinkercad-style inline editable dimension states
+  // Inline dimension typing (Tinkercad style)
   const [editingDim, setEditingDim] = useState<'length' | 'width' | null>(null);
   const [dimInputVal, setDimInputVal] = useState<string>('');
 
@@ -87,12 +91,10 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
   const pivotWorldPos = getPivotWorldPosition(part);
   const bounds = getPartWorldBounds(part);
 
-  const fmtLen = (mm: number) =>
-    unitMode === 'cm'
-      ? `${(mm / 10).toFixed(1)} ס"מ`
-      : `${Math.round(mm)} מ"מ`;
+  const fmtVal = (mm: number) =>
+    unitMode === 'cm' ? (mm / 10).toFixed(1) : `${Math.round(mm)}`;
+  const unitSuffix = unitMode === 'cm' ? 'ס"מ' : 'מ"מ';
 
-  // Convert any screen (clientX, clientY) into a 3D plane intersection
   const intersectPlaneAtClientXY = (
     plane: THREE.Plane,
     clientX: number,
@@ -108,8 +110,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     return rc.ray.intersectPlane(plane, out);
   };
 
-  // Global window pointermove / pointerup listener while dragging any handle!
-  // This ensures dragging NEVER drops or gets blocked by other beams.
+  // Window-level drag tracking
   useEffect(() => {
     if (!dragState) return;
 
@@ -122,29 +123,21 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       );
       if (!hit) return;
 
-      if (dragState.kind === 'translate-axis') {
-        const diff = hit.clone().sub(dragState.startWorldPoint);
-        const nextPos: [number, number, number] = [...dragState.initialPartPos];
-        if (dragState.axis === 'x') nextPos[0] += diff.x;
-        if (dragState.axis === 'y') nextPos[1] += diff.y;
-        if (dragState.axis === 'z') nextPos[2] += diff.z;
-
+      if (dragState.kind === 'translate-y') {
+        const diffY = hit.y - dragState.startWorldPoint.y;
+        const nextPos: [number, number, number] = [
+          dragState.initialPartPos[0],
+          dragState.initialPartPos[1] + diffY,
+          dragState.initialPartPos[2],
+        ];
         movePartWithSnap(currentPart.id, nextPos, false);
         const updatedBounds = getPartWorldBounds({
           ...currentPart,
           position: nextPos,
         });
-        if (dragState.axis === 'y') {
-          setLiveBadge(
-            `▲ גובה מהרצפה: ${fmtLen(Math.max(0, updatedBounds.min[1]))}`
-          );
-        } else {
-          setLiveBadge(
-            `הזזה בציר ${dragState.axis.toUpperCase()}: ${fmtLen(
-              nextPos[dragState.axis === 'x' ? 0 : 2]
-            )}`
-          );
-        }
+        setLiveBadge(
+          `${fmtVal(Math.max(0, updatedBounds.min[1]))} ${unitSuffix}`
+        );
       } else if (dragState.kind === 'stretch') {
         const diff = hit.clone().sub(dragState.startWorldPoint);
         const projectedDelta = diff.dot(dragState.axisVec);
@@ -153,11 +146,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
         const snappedDim = Math.max(50, Math.round(rawNewDim / step) * step);
 
         stretchPartSide(currentPart.id, dragState.side, snappedDim, false);
-        setLiveBadge(
-          `■ ${
-            dragState.side.startsWith('length') ? 'אורך קורה' : 'רוחב לוח'
-          }: ${fmtLen(snappedDim)}`
-        );
+        setLiveBadge(`${fmtVal(snappedDim)} ${unitSuffix}`);
       } else if (dragState.kind === 'rotate-axis') {
         const rel = hit.clone().sub(dragState.pivotWorld);
         const curAngleRad = Math.atan2(
@@ -181,11 +170,36 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
           (((dragState.initialRotation[axisIdx] + deltaDeg) % 360) + 360) % 360;
 
         rotatePartWithPivot(currentPart.id, nextRot, false);
-        setLiveBadge(
-          `↻ סיבוב ${dragState.axis.toUpperCase()} (סביב עוגן 🎯): ${Math.round(
-            nextRot[axisIdx]
-          )}°`
-        );
+        setLiveBadge(`${Math.round(nextRot[axisIdx])}°`);
+      } else if (dragState.kind === 'drag-pivot') {
+        // Transform world hit into local beam coordinates to update Pivot Anchor
+        const invQuat = getPartQuaternion(currentPart.rotation)
+          .clone()
+          .invert();
+        const localVec = hit
+          .clone()
+          .sub(new THREE.Vector3(...currentPart.position))
+          .applyQuaternion(invQuat);
+
+        const curLen = resolvePartLengths(currentPart).outerLength;
+        const hL = Math.max(1, curLen / 2);
+        const hT = Math.max(1, currentPart.dimensions.thickness / 2);
+        const hW = Math.max(1, currentPart.dimensions.width / 2);
+
+        const snapCoord = (val: number) => {
+          const clamped = Math.max(-1, Math.min(1, val));
+          if (!ev.shiftKey) {
+            if (Math.abs(clamped - -1) < 0.22) return -1;
+            if (Math.abs(clamped) < 0.22) return 0;
+            if (Math.abs(clamped - 1) < 0.22) return 1;
+          }
+          return Math.round(clamped * 20) / 20;
+        };
+
+        const nx = snapCoord(localVec.x / hL);
+        const ny = snapCoord(localVec.y / hT);
+        const nz = snapCoord(localVec.z / hW);
+        setPartPivot(currentPart.id, { x: nx, y: ny, z: nz });
       }
     };
 
@@ -211,15 +225,15 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     movePartWithSnap,
     stretchPartSide,
     rotatePartWithPivot,
+    setPartPivot,
     setActiveSnapLines,
     setOrbitEnabled,
   ]);
 
   if (part.locked || !part.visible) return null;
 
-  // Start translating along X, Y (Up/Down), or Z world axis (works from 3D mesh OR HTML overlay button)
-  const startAxisTranslateClient = (
-    axis: 'x' | 'y' | 'z',
+  // Start Y-Elevation drag from the Tinkercad top cone
+  const startElevateY = (
     clientX: number,
     clientY: number,
     stopEvt?: { stopPropagation: () => void }
@@ -228,13 +242,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     setOrbitEnabled(false);
     pushHistory();
 
-    const axisDir =
-      axis === 'x'
-        ? new THREE.Vector3(1, 0, 0)
-        : axis === 'y'
-        ? new THREE.Vector3(0, 1, 0)
-        : new THREE.Vector3(0, 0, 1);
-
+    const axisDir = new THREE.Vector3(0, 1, 0);
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
     const sideVec = new THREE.Vector3()
@@ -243,9 +251,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     const planeNormal = new THREE.Vector3()
       .crossVectors(axisDir, sideVec)
       .normalize();
-    if (planeNormal.lengthSq() < 0.01) {
-      planeNormal.set(0, 0, 1);
-    }
+    if (planeNormal.lengthSq() < 0.01) planeNormal.set(0, 0, 1);
 
     const origin = new THREE.Vector3(...part.position);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
@@ -256,15 +262,14 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       intersectPlaneAtClientXY(plane, clientX, clientY) || origin.clone();
 
     setDragState({
-      kind: 'translate-axis',
-      axis,
+      kind: 'translate-y',
       startWorldPoint: hit,
       initialPartPos: [...part.position],
       plane,
     });
   };
 
-  // Start stretching an end face (works from 3D mesh OR Tinkercad HTML square handle!)
+  // Start stretching an end/side via Tinkercad square handle
   const startStretchClient = (
     side: StretchSide,
     clientX: number,
@@ -358,7 +363,21 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     });
   };
 
-  // Commit Tinkercad direct typed dimension input
+  // Start dragging the Photoshop/Illustrator Pivot Reticle directly in 3D space
+  const startDragPivot = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    setOrbitEnabled(false);
+
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    const pivotVec = new THREE.Vector3(...pivotWorldPos);
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      camDir,
+      pivotVec
+    );
+    setDragState({ kind: 'drag-pivot', plane });
+  };
+
   const commitTypedDimension = (dimType: 'length' | 'width') => {
     const parsed = parseFloat(dimInputVal);
     if (!Number.isNaN(parsed) && parsed > 0) {
@@ -376,250 +395,198 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     setEditingDim(null);
   };
 
-  // Visibility flags: 'tinkercad' mode shows the unified Tinkercad cage all at once!
-  const showMoveAndElevation =
-    gizmoMode === 'tinkercad' || gizmoMode === 'move';
-  const showStretchHandles =
-    (gizmoMode === 'tinkercad' || gizmoMode === 'stretch') &&
-    stock.category !== 'hardware';
-  const showRotationHandles =
-    gizmoMode === 'tinkercad' || gizmoMode === 'rotate';
-
-  // Compute handle distances strictly OUTSIDE the part's world bounding box
-  const xTipOffset = bounds.size[0] / 2 + 85;
-  const yTopOffset = bounds.size[1] / 2 + 80;
-  const zTipOffset = bounds.size[2] / 2 + 85;
-
-  const ringRadius = Math.max(
-    115,
-    Math.min(230, Math.max(outerLength, part.dimensions.width) * 0.25)
+  const yConeOffset = bounds.size[1] / 2 + 58;
+  const arcRadius = Math.max(
+    75,
+    Math.min(155, Math.max(outerLength, part.dimensions.width) * 0.2)
   );
-
-  const anchorCandidates: Array<{ label: string; pivot: PivotAnchor }> = [
-    { label: 'מרכז החלק', pivot: { x: 0, y: 0, z: 0 } },
-    { label: 'קצה שמאל (מרכז)', pivot: { x: -1, y: 0, z: 0 } },
-    { label: 'קצה ימין (מרכז)', pivot: { x: 1, y: 0, z: 0 } },
-    { label: 'קצה שמאל-תחתון-אחורי', pivot: { x: -1, y: -1, z: -1 } },
-    { label: 'קצה שמאל-תחתון-קדמי', pivot: { x: -1, y: -1, z: 1 } },
-    { label: 'קצה ימין-תחתון-אחורי', pivot: { x: 1, y: -1, z: -1 } },
-    { label: 'קצה ימין-תחתון-קדמי', pivot: { x: 1, y: -1, z: 1 } },
-    { label: 'קצה שמאל-עליון', pivot: { x: -1, y: 1, z: 0 } },
-    { label: 'קצה ימין-עליון', pivot: { x: 1, y: 1, z: 0 } },
-  ];
-
   const heightFromFloorMm = Math.max(0, Math.round(bounds.min[1]));
 
   return (
     <group userData={{ isGizmoHandle: true }}>
       {/* =====================================================================
-          1. TINKERCAD ELEVATION CONE (▲) & X/Z MOVE ARROWS
+          STAGE 1: SINGLE-CLICK MODE ('move')
+          Clean Tinkercad Top Elevation Cone + Subtle Short Rotation Arcs +
+          Photoshop/Illustrator Draggable Pivot Reticle (Zero Text Clutter!)
          ===================================================================== */}
-      {showMoveAndElevation && (
-        <group position={part.position} userData={{ isGizmoHandle: true }}>
-          {/* Vertical dashed guide line to floor when lifted above Y=0 */}
-          {heightFromFloorMm > 2 && (
-            <Line
-              points={[
-                [0, -bounds.size[1] / 2, 0],
-                [0, -part.position[1], 0],
-              ]}
-              color="#22c55e"
-              lineWidth={2}
-              dashed
-              dashSize={18}
-              gapSize={12}
-              depthTest={false}
-              renderOrder={998}
-            />
-          )}
+      {partEditMode === 'move' && (
+        <>
+          <group position={part.position} userData={{ isGizmoHandle: true }}>
+            {/* Subtle vertical dashed line to floor only when elevated or dragging Y */}
+            {(heightFromFloorMm > 2 || dragState?.kind === 'translate-y') && (
+              <Line
+                points={[
+                  [0, -bounds.size[1] / 2, 0],
+                  [0, -part.position[1], 0],
+                ]}
+                color="#0284c7"
+                lineWidth={1.5}
+                dashed
+                dashSize={12}
+                gapSize={10}
+                depthTest={false}
+                renderOrder={998}
+              />
+            )}
 
-          {/* Y Axis Up/Down Tinkercad Cone Handle (Always above the top of the part) */}
-          <group
-            userData={{ isGizmoHandle: true }}
-            onPointerDown={(e) =>
-              startAxisTranslateClient('y', e.clientX, e.clientY, e)
-            }
-          >
-            <Line
-              points={[
-                [0, bounds.size[1] / 2, 0],
-                [0, yTopOffset, 0],
-              ]}
-              color="#22c55e"
-              lineWidth={3.5}
-              depthTest={false}
-              renderOrder={999}
-            />
-            {/* Top Up-Cone (3D mesh with raycast priority) */}
-            <mesh
-              position={[0, yTopOffset, 0]}
-              renderOrder={999}
+            {/* Tinkercad Top Elevation Cone (Clean Dark Geometric Cone above part) */}
+            <group
               userData={{ isGizmoHandle: true }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setConeHovered(true);
+              }}
+              onPointerOut={() => setConeHovered(false)}
+              onPointerDown={(e) => startElevateY(e.clientX, e.clientY, e)}
             >
-              <coneGeometry args={[22, 52, 20]} />
-              <meshBasicMaterial color="#22c55e" depthTest={false} />
-            </mesh>
-            {/* Generous Invisible Hit Cylinder */}
+              <Line
+                points={[
+                  [0, bounds.size[1] / 2 + 8, 0],
+                  [0, yConeOffset - 16, 0],
+                ]}
+                color={
+                  coneHovered || dragState?.kind === 'translate-y'
+                    ? '#0284c7'
+                    : '#334155'
+                }
+                lineWidth={2}
+                depthTest={false}
+                renderOrder={999}
+              />
+              <mesh
+                position={[0, yConeOffset, 0]}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <coneGeometry args={[14, 32, 20]} />
+                <meshBasicMaterial
+                  color={
+                    coneHovered || dragState?.kind === 'translate-y'
+                      ? '#0284c7'
+                      : '#1e293b'
+                  }
+                  depthTest={false}
+                />
+              </mesh>
+              {/* Invisible generous hit cylinder */}
+              <mesh
+                position={[0, yConeOffset - 12, 0]}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <cylinderGeometry args={[24, 24, 56, 12]} />
+                <meshBasicMaterial transparent opacity={0} depthTest={false} />
+              </mesh>
+            </group>
+          </group>
+
+          {/* Subtle Short 60° Curved Rotation Arcs (Tinkercad Protractor Arcs, NOT full 360° rings!) */}
+          <group position={pivotWorldPos} userData={{ isGizmoHandle: true }}>
+            {/* Y-Axis Horizontal Rotation Arc (60° segment) */}
             <mesh
-              position={[0, yTopOffset - 25, 0]}
-              renderOrder={999}
               userData={{ isGizmoHandle: true }}
+              rotation={[Math.PI / 2, 0, Math.PI / 6]}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setHoveredArc('y');
+              }}
+              onPointerOut={() => setHoveredArc(null)}
+              onPointerDown={(e) => startRotateAxis('y', e)}
+              renderOrder={999}
             >
-              <cylinderGeometry args={[34, 34, 85, 12]} />
-              <meshBasicMaterial transparent opacity={0} depthTest={false} />
+              <torusGeometry args={[arcRadius, 4.2, 12, 28, Math.PI / 2.6]} />
+              <meshBasicMaterial
+                color={hoveredArc === 'y' ? '#0284c7' : '#334155'}
+                depthTest={false}
+              />
             </mesh>
 
-            {/* Screen-Space Interactive Tinkercad Elevation Cone Button + Drop to Floor (D) */}
-            <Html
-              position={[0, yTopOffset + 32, 0]}
-              center
-              zIndexRange={[30, 0]}
+            {/* X-Axis Tilt Arc (60° segment) */}
+            <mesh
+              userData={{ isGizmoHandle: true }}
+              rotation={[0, Math.PI / 2, Math.PI / 8]}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setHoveredArc('x');
+              }}
+              onPointerOut={() => setHoveredArc(null)}
+              onPointerDown={(e) => startRotateAxis('x', e)}
+              renderOrder={999}
             >
-              <div className="flex items-center gap-1 select-none">
-                <button
-                  type="button"
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    startAxisTranslateClient('y', e.clientX, e.clientY);
-                  }}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[11px] px-2 py-0.5 rounded-md shadow-lg border border-white flex items-center gap-1 cursor-ns-resize transition"
-                  title="גרור למעלה/למטה לשינוי גובה מהרצפה (כמו החרוט בטינקרקאד)"
-                >
-                  <span>▲</span>
-                  <span className="font-mono">{fmtLen(heightFromFloorMm)}</span>
-                </button>
-                {heightFromFloorMm > 2 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      dropSelectedToFloor();
-                    }}
-                    className="bg-slate-900/95 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-[10px] px-1.5 py-0.5 rounded-md shadow-lg border border-amber-500/60 cursor-pointer transition whitespace-nowrap"
-                    title="הנח צמוד לרצפה Y=0 (קיצור מקלדת: D)"
-                  >
-                    ⬇ רצפה (D)
-                  </button>
-                )}
+              <torusGeometry
+                args={[arcRadius * 0.88, 4.2, 12, 28, Math.PI / 2.6]}
+              />
+              <meshBasicMaterial
+                color={hoveredArc === 'x' ? '#0284c7' : '#475569'}
+                depthTest={false}
+              />
+            </mesh>
+
+            {/* Z-Axis Pitch Arc (60° segment) */}
+            <mesh
+              userData={{ isGizmoHandle: true }}
+              rotation={[0, 0, Math.PI / 8]}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setHoveredArc('z');
+              }}
+              onPointerOut={() => setHoveredArc(null)}
+              onPointerDown={(e) => startRotateAxis('z', e)}
+              renderOrder={999}
+            >
+              <torusGeometry
+                args={[arcRadius * 0.76, 4.2, 12, 28, Math.PI / 2.6]}
+              />
+              <meshBasicMaterial
+                color={hoveredArc === 'z' ? '#0284c7' : '#64748b'}
+                depthTest={false}
+              />
+            </mesh>
+
+            {/* Photoshop / Illustrator Draggable Pivot Reference Point Reticle */}
+            <Html position={[0, 0, 0]} center zIndexRange={[30, 0]}>
+              <div
+                onPointerDown={startDragPivot}
+                className="w-6 h-6 rounded-full bg-white/95 hover:bg-amber-50 text-slate-900 hover:text-amber-600 border border-slate-400 shadow-sm flex items-center justify-center cursor-move transition select-none"
+                title="נקודת עוגן לסיבוב (גרור למיקום הרצוי על הקורה או החזק Shift למיקום חופשי)"
+              >
+                <IconPivotTarget size={15} />
               </div>
             </Html>
           </group>
-
-          {/* X Axis Left/Right Handle (Red) */}
-          <group
-            userData={{ isGizmoHandle: true }}
-            onPointerDown={(e) =>
-              startAxisTranslateClient('x', e.clientX, e.clientY, e)
-            }
-          >
-            <Line
-              points={[
-                [bounds.size[0] / 2, 0, 0],
-                [xTipOffset, 0, 0],
-              ]}
-              color="#ef4444"
-              lineWidth={3.5}
-              depthTest={false}
-              renderOrder={999}
-            />
-            <mesh
-              position={[xTipOffset, 0, 0]}
-              rotation={[0, 0, -Math.PI / 2]}
-              renderOrder={999}
-              userData={{ isGizmoHandle: true }}
-            >
-              <coneGeometry args={[17, 44, 16]} />
-              <meshBasicMaterial color="#ef4444" depthTest={false} />
-            </mesh>
-            <mesh
-              position={[(bounds.size[0] / 2 + xTipOffset) / 2, 0, 0]}
-              rotation={[0, 0, -Math.PI / 2]}
-              renderOrder={999}
-              userData={{ isGizmoHandle: true }}
-            >
-              <cylinderGeometry
-                args={[28, 28, Math.max(40, xTipOffset - bounds.size[0] / 2), 12]}
-              />
-              <meshBasicMaterial transparent opacity={0} depthTest={false} />
-            </mesh>
-          </group>
-
-          {/* Z Axis Front/Back Handle (Blue) */}
-          <group
-            userData={{ isGizmoHandle: true }}
-            onPointerDown={(e) =>
-              startAxisTranslateClient('z', e.clientX, e.clientY, e)
-            }
-          >
-            <Line
-              points={[
-                [0, 0, bounds.size[2] / 2],
-                [0, 0, zTipOffset],
-              ]}
-              color="#38bdf8"
-              lineWidth={3.5}
-              depthTest={false}
-              renderOrder={999}
-            />
-            <mesh
-              position={[0, 0, zTipOffset]}
-              rotation={[Math.PI / 2, 0, 0]}
-              renderOrder={999}
-              userData={{ isGizmoHandle: true }}
-            >
-              <coneGeometry args={[17, 44, 16]} />
-              <meshBasicMaterial color="#38bdf8" depthTest={false} />
-            </mesh>
-            <mesh
-              position={[0, 0, (bounds.size[2] / 2 + zTipOffset) / 2]}
-              rotation={[Math.PI / 2, 0, 0]}
-              renderOrder={999}
-              userData={{ isGizmoHandle: true }}
-            >
-              <cylinderGeometry
-                args={[28, 28, Math.max(40, zTipOffset - bounds.size[2] / 2), 12]}
-              />
-              <meshBasicMaterial transparent opacity={0} depthTest={false} />
-            </mesh>
-          </group>
-        </group>
+        </>
       )}
 
       {/* =====================================================================
-          2. TINKERCAD STRETCH SQUARES (■) + LIVE EDITABLE DIMENSION RULER BOX
+          STAGE 2: DOUBLE-CLICK MODE ('dimensions')
+          Pure Tinkercad White/Black Stretch Squares (■) & Live Clickable Ruler
          ===================================================================== */}
-      {showStretchHandles && (
+      {partEditMode === 'dimensions' && stock.category !== 'hardware' && (
         <group
           position={part.position}
           quaternion={quat}
           userData={{ isGizmoHandle: true }}
         >
-          {/* End +X Stretch Handle (3D Mesh + Unblockable DOM Tinkercad Square ■) */}
-          <mesh
-            position={[halfL + 16, 0, 0]}
-            userData={{ isGizmoHandle: true }}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              setHoveredStretchSide('length-end');
-            }}
-            onPointerOut={() => setHoveredStretchSide(null)}
-            onPointerDown={(e) =>
-              startStretchClient('length-end', e.clientX, e.clientY, e)
-            }
-            renderOrder={999}
-          >
-            <boxGeometry
-              args={[28, Math.max(32, halfT * 1.15), Math.max(36, halfW * 0.8)]}
-            />
-            <meshBasicMaterial
-              color={
-                hoveredStretchSide === 'length-end' ? '#ef4444' : '#f59e0b'
-              }
-              depthTest={false}
-            />
-          </mesh>
+          {/* Dashed Tinkercad Footprint Selection Box */}
+          <Line
+            points={[
+              [-halfL, -halfT, -halfW],
+              [halfL, -halfT, -halfW],
+              [halfL, -halfT, halfW],
+              [-halfL, -halfT, halfW],
+              [-halfL, -halfT, -halfW],
+            ]}
+            color="#0284c7"
+            lineWidth={1.6}
+            dashed
+            dashSize={10}
+            gapSize={8}
+            depthTest={false}
+            renderOrder={998}
+          />
 
-          <Html position={[halfL + 20, 0, 0]} center zIndexRange={[35, 0]}>
+          {/* End +X Pure Geometric Stretch Square (■) */}
+          <Html position={[halfL, 0, 0]} center zIndexRange={[35, 0]}>
             <button
               type="button"
               onPointerEnter={() => setHoveredStretchSide('length-end')}
@@ -628,45 +595,19 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                 e.stopPropagation();
                 startStretchClient('length-end', e.clientX, e.clientY);
               }}
-              className={`w-6 h-6 rounded shadow-xl border-2 flex items-center justify-center font-extrabold text-[11px] cursor-ew-resize select-none transition ${
+              className={`w-3.5 h-3.5 border-[1.5px] shadow-sm cursor-ew-resize transition ${
                 hoveredStretchSide === 'length-end' ||
                 (dragState?.kind === 'stretch' &&
                   dragState.side === 'length-end')
-                  ? 'bg-amber-400 text-slate-950 border-white scale-125'
-                  : 'bg-white text-slate-950 border-slate-900 hover:bg-amber-300'
+                  ? 'bg-red-500 border-white scale-125'
+                  : 'bg-white border-slate-900 hover:bg-red-500 hover:border-white'
               }`}
-              title="גרור להארכת/קיצור קצה הקורה (או לחץ על המידה להקלדת אורך מדויק)"
-            >
-              ↔
-            </button>
+              title="גרור לשינוי אורך הקורה"
+            />
           </Html>
 
-          {/* Start -X Stretch Handle (3D Mesh + Unblockable DOM Tinkercad Square ■) */}
-          <mesh
-            position={[-halfL - 16, 0, 0]}
-            userData={{ isGizmoHandle: true }}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              setHoveredStretchSide('length-start');
-            }}
-            onPointerOut={() => setHoveredStretchSide(null)}
-            onPointerDown={(e) =>
-              startStretchClient('length-start', e.clientX, e.clientY, e)
-            }
-            renderOrder={999}
-          >
-            <boxGeometry
-              args={[28, Math.max(32, halfT * 1.15), Math.max(36, halfW * 0.8)]}
-            />
-            <meshBasicMaterial
-              color={
-                hoveredStretchSide === 'length-start' ? '#ef4444' : '#f59e0b'
-              }
-              depthTest={false}
-            />
-          </mesh>
-
-          <Html position={[-halfL - 20, 0, 0]} center zIndexRange={[35, 0]}>
+          {/* Start -X Pure Geometric Stretch Square (■) */}
+          <Html position={[-halfL, 0, 0]} center zIndexRange={[35, 0]}>
             <button
               type="button"
               onPointerEnter={() => setHoveredStretchSide('length-start')}
@@ -675,32 +616,51 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                 e.stopPropagation();
                 startStretchClient('length-start', e.clientX, e.clientY);
               }}
-              className={`w-6 h-6 rounded shadow-xl border-2 flex items-center justify-center font-extrabold text-[11px] cursor-ew-resize select-none transition ${
+              className={`w-3.5 h-3.5 border-[1.5px] shadow-sm cursor-ew-resize transition ${
                 hoveredStretchSide === 'length-start' ||
                 (dragState?.kind === 'stretch' &&
                   dragState.side === 'length-start')
-                  ? 'bg-amber-400 text-slate-950 border-white scale-125'
-                  : 'bg-white text-slate-950 border-slate-900 hover:bg-amber-300'
+                  ? 'bg-red-500 border-white scale-125'
+                  : 'bg-white border-slate-900 hover:bg-red-500 hover:border-white'
               }`}
-              title="גרור להארכת/קיצור קצה הקורה (או לחץ על המידה להקלדת אורך מדויק)"
-            >
-              ↔
-            </button>
+              title="גרור לשינוי אורך הקורה"
+            />
           </Html>
 
-          {/* Tinkercad Dimension Extension Line & Click-to-Type Length Box */}
+          {/* Tinkercad Clean Architectural Extension Line & Clickable Dimension Box */}
           <Line
             points={[
-              [-halfL, -halfT - 14, halfW + 28],
-              [halfL, -halfT - 14, halfW + 28],
+              [-halfL, -halfT, halfW + 32],
+              [halfL, -halfT, halfW + 32],
             ]}
-            color="#f59e0b"
-            lineWidth={2}
+            color="#0284c7"
+            lineWidth={1.5}
             depthTest={false}
             renderOrder={998}
           />
+          <Line
+            points={[
+              [-halfL, -halfT, halfW],
+              [-halfL, -halfT, halfW + 38],
+            ]}
+            color="#64748b"
+            lineWidth={1}
+            depthTest={false}
+            renderOrder={998}
+          />
+          <Line
+            points={[
+              [halfL, -halfT, halfW],
+              [halfL, -halfT, halfW + 38],
+            ]}
+            color="#64748b"
+            lineWidth={1}
+            depthTest={false}
+            renderOrder={998}
+          />
+
           <Html
-            position={[0, -halfT - 18, halfW + 34]}
+            position={[0, -halfT, halfW + 32]}
             center
             zIndexRange={[35, 0]}
           >
@@ -711,7 +671,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                   commitTypedDimension('length');
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 bg-white text-slate-950 px-1.5 py-0.5 rounded-md shadow-2xl border-2 border-amber-500"
+                className="flex items-center gap-1 bg-white text-slate-900 px-1.5 py-0.5 rounded shadow-lg border-2 border-sky-500"
               >
                 <input
                   type="number"
@@ -723,11 +683,8 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') setEditingDim(null);
                   }}
-                  className="w-16 text-xs font-mono font-extrabold text-center bg-transparent outline-none"
+                  className="w-14 text-xs font-mono font-bold text-center bg-transparent outline-none"
                 />
-                <span className="text-[10px] font-bold text-slate-600">
-                  {unitMode === 'cm' ? 'ס"מ' : 'מ"מ'}
-                </span>
               </form>
             ) : (
               <button
@@ -735,89 +692,56 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setDimInputVal(
-                    unitMode === 'cm'
-                      ? (part.dimensions.length / 10).toFixed(1)
-                      : String(Math.round(part.dimensions.length))
-                  );
+                  setDimInputVal(fmtVal(part.dimensions.length));
                   setEditingDim('length');
                 }}
-                className="bg-white hover:bg-amber-100 text-slate-950 font-mono font-extrabold text-[11px] px-2 py-0.5 rounded shadow-xl border-2 border-slate-900 hover:border-amber-500 whitespace-nowrap cursor-pointer transition select-none"
-                title="לחץ להקלדת אורך מדויק (בדיוק כמו בטינקרקאד!)"
+                className="bg-white hover:bg-sky-50 text-slate-900 font-mono font-bold text-xs px-2 py-0.5 rounded shadow-md border border-slate-400 hover:border-sky-500 whitespace-nowrap cursor-pointer transition select-none"
+                title="לחץ להקלדת מידה מדויקת"
               >
-                {fmtLen(part.dimensions.length)} ✎
+                {fmtVal(part.dimensions.length)}
               </button>
             )}
           </Html>
 
-          {/* Sheet Goods also have Width (+Z / -Z) Tinkercad Stretch Squares & Editable Width Box */}
+          {/* Sheet Goods also have Width (+Z / -Z) Tinkercad Squares & Editable Width Box */}
           {stock.category === 'sheet' && (
             <>
-              <mesh
-                position={[0, 0, halfW + 16]}
-                userData={{ isGizmoHandle: true }}
-                onPointerDown={(e) =>
-                  startStretchClient('width-end', e.clientX, e.clientY, e)
-                }
-                renderOrder={999}
-              >
-                <boxGeometry
-                  args={[
-                    Math.max(44, halfL * 0.4),
-                    Math.max(28, halfT * 1.15),
-                    26,
-                  ]}
-                />
-                <meshBasicMaterial color="#fb923c" depthTest={false} />
-              </mesh>
-              <Html position={[0, 0, halfW + 20]} center zIndexRange={[35, 0]}>
+              <Html position={[0, 0, halfW]} center zIndexRange={[35, 0]}>
                 <button
                   type="button"
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     startStretchClient('width-end', e.clientX, e.clientY);
                   }}
-                  className="w-6 h-6 rounded shadow-xl border-2 bg-white hover:bg-amber-300 text-slate-950 border-slate-900 flex items-center justify-center font-extrabold text-[11px] cursor-ns-resize select-none"
+                  className="w-3.5 h-3.5 bg-white hover:bg-red-500 border-[1.5px] border-slate-900 hover:border-white shadow-sm cursor-ns-resize transition"
                   title="גרור לשינוי רוחב הלוח"
-                >
-                  ↕
-                </button>
-              </Html>
-
-              <mesh
-                position={[0, 0, -halfW - 16]}
-                userData={{ isGizmoHandle: true }}
-                onPointerDown={(e) =>
-                  startStretchClient('width-start', e.clientX, e.clientY, e)
-                }
-                renderOrder={999}
-              >
-                <boxGeometry
-                  args={[
-                    Math.max(44, halfL * 0.4),
-                    Math.max(28, halfT * 1.15),
-                    26,
-                  ]}
                 />
-                <meshBasicMaterial color="#fb923c" depthTest={false} />
-              </mesh>
-              <Html position={[0, 0, -halfW - 20]} center zIndexRange={[35, 0]}>
+              </Html>
+              <Html position={[0, 0, -halfW]} center zIndexRange={[35, 0]}>
                 <button
                   type="button"
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     startStretchClient('width-start', e.clientX, e.clientY);
                   }}
-                  className="w-6 h-6 rounded shadow-xl border-2 bg-white hover:bg-amber-300 text-slate-950 border-slate-900 flex items-center justify-center font-extrabold text-[11px] cursor-ns-resize select-none"
+                  className="w-3.5 h-3.5 bg-white hover:bg-red-500 border-[1.5px] border-slate-900 hover:border-white shadow-sm cursor-ns-resize transition"
                   title="גרור לשינוי רוחב הלוח"
-                >
-                  ↕
-                </button>
+                />
               </Html>
 
-              {/* Editable Width Box for Sheet Goods */}
+              <Line
+                points={[
+                  [halfL + 32, -halfT, -halfW],
+                  [halfL + 32, -halfT, halfW],
+                ]}
+                color="#0284c7"
+                lineWidth={1.5}
+                depthTest={false}
+                renderOrder={998}
+              />
+
               <Html
-                position={[halfL + 34, -halfT - 18, 0]}
+                position={[halfL + 32, -halfT, 0]}
                 center
                 zIndexRange={[35, 0]}
               >
@@ -828,7 +752,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                       commitTypedDimension('width');
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 bg-white text-slate-950 px-1.5 py-0.5 rounded-md shadow-2xl border-2 border-amber-500"
+                    className="flex items-center gap-1 bg-white text-slate-900 px-1.5 py-0.5 rounded shadow-lg border-2 border-sky-500"
                   >
                     <input
                       type="number"
@@ -840,11 +764,8 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') setEditingDim(null);
                       }}
-                      className="w-16 text-xs font-mono font-extrabold text-center bg-transparent outline-none"
+                      className="w-14 text-xs font-mono font-bold text-center bg-transparent outline-none"
                     />
-                    <span className="text-[10px] font-bold text-slate-600">
-                      {unitMode === 'cm' ? 'ס"מ' : 'מ"מ'}
-                    </span>
                   </form>
                 ) : (
                   <button
@@ -852,17 +773,13 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setDimInputVal(
-                        unitMode === 'cm'
-                          ? (part.dimensions.width / 10).toFixed(1)
-                          : String(Math.round(part.dimensions.width))
-                      );
+                      setDimInputVal(fmtVal(part.dimensions.width));
                       setEditingDim('width');
                     }}
-                    className="bg-white hover:bg-amber-100 text-slate-950 font-mono font-extrabold text-[11px] px-2 py-0.5 rounded shadow-xl border-2 border-slate-900 hover:border-amber-500 whitespace-nowrap cursor-pointer transition select-none"
-                    title="לחץ להקלדת רוחב לוח מדויק"
+                    className="bg-white hover:bg-sky-50 text-slate-900 font-mono font-bold text-xs px-2 py-0.5 rounded shadow-md border border-slate-400 hover:border-sky-500 whitespace-nowrap cursor-pointer transition select-none"
+                    title="לחץ להקלדת רוחב מדויק"
                   >
-                    רוחב: {fmtLen(part.dimensions.width)} ✎
+                    {fmtVal(part.dimensions.width)}
                   </button>
                 )}
               </Html>
@@ -871,134 +788,14 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
         </group>
       )}
 
-      {/* =====================================================================
-          3. ROTATION PROTRACTOR RINGS & WOODWORKING PIVOT ANCHOR (🎯)
-         ===================================================================== */}
-      {showRotationHandles && (
-        <>
-          {showAnchorNodes && (
-            <group
-              position={part.position}
-              quaternion={quat}
-              userData={{ isGizmoHandle: true }}
-            >
-              {anchorCandidates.map((cand, idx) => {
-                const isCurrent =
-                  cand.pivot.x === part.pivot.x &&
-                  cand.pivot.y === part.pivot.y &&
-                  cand.pivot.z === part.pivot.z;
-                return (
-                  <mesh
-                    key={idx}
-                    userData={{ isGizmoHandle: true }}
-                    position={[
-                      cand.pivot.x * halfL,
-                      cand.pivot.y * halfT,
-                      cand.pivot.z * halfW,
-                    ]}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPartPivot(part.id, cand.pivot);
-                    }}
-                    renderOrder={999}
-                  >
-                    <sphereGeometry args={[isCurrent ? 20 : 14, 16, 16]} />
-                    <meshBasicMaterial
-                      color={isCurrent ? '#ec4899' : '#fde047'}
-                      depthTest={false}
-                    />
-                  </mesh>
-                );
-              })}
-            </group>
-          )}
-
-          <group position={pivotWorldPos} userData={{ isGizmoHandle: true }}>
-            <mesh
-              userData={{ isGizmoHandle: true }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowAnchorNodes((v) => !v);
-              }}
-              renderOrder={999}
-            >
-              <sphereGeometry args={[15, 20, 20]} />
-              <meshBasicMaterial color="#ec4899" depthTest={false} />
-            </mesh>
-
-            {/* X Axis Rotation Ring (Red) */}
-            <mesh
-              userData={{ isGizmoHandle: true }}
-              rotation={[0, Math.PI / 2, 0]}
-              onPointerDown={(e) => startRotateAxis('x', e)}
-              renderOrder={999}
-            >
-              <torusGeometry args={[ringRadius, 6.5, 12, 48]} />
-              <meshBasicMaterial
-                color="#ef4444"
-                transparent
-                opacity={gizmoMode === 'rotate' ? 0.92 : 0.65}
-                depthTest={false}
-              />
-            </mesh>
-
-            {/* Y Axis Rotation Ring (Green) */}
-            <mesh
-              userData={{ isGizmoHandle: true }}
-              rotation={[Math.PI / 2, 0, 0]}
-              onPointerDown={(e) => startRotateAxis('y', e)}
-              renderOrder={999}
-            >
-              <torusGeometry args={[ringRadius * 1.1, 6.5, 12, 48]} />
-              <meshBasicMaterial
-                color="#22c55e"
-                transparent
-                opacity={gizmoMode === 'rotate' ? 0.92 : 0.65}
-                depthTest={false}
-              />
-            </mesh>
-
-            {/* Z Axis Rotation Ring (Blue) */}
-            <mesh
-              userData={{ isGizmoHandle: true }}
-              rotation={[0, 0, 0]}
-              onPointerDown={(e) => startRotateAxis('z', e)}
-              renderOrder={999}
-            >
-              <torusGeometry args={[ringRadius * 0.9, 6.5, 12, 48]} />
-              <meshBasicMaterial
-                color="#38bdf8"
-                transparent
-                opacity={gizmoMode === 'rotate' ? 0.92 : 0.65}
-                depthTest={false}
-              />
-            </mesh>
-
-            <Html position={[0, -34, 0]} center zIndexRange={[25, 0]}>
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowAnchorNodes((v) => !v);
-                }}
-                className="bg-pink-950/90 hover:bg-pink-800 text-pink-200 border border-pink-500/60 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap shadow cursor-pointer select-none"
-              >
-                🎯 עוגן סיבוב {showAnchorNodes ? '(בחר נקודה צהובה)' : '(שנה)'}
-              </button>
-            </Html>
-          </group>
-        </>
-      )}
-
-      {/* Clean Compact Drag Readout Tooltip */}
+      {/* Minimal Live Readout ONLY while actively dragging */}
       {liveBadge && (
         <Html
-          position={[part.position[0], bounds.max[1] + 115, part.position[2]]}
+          position={[part.position[0], bounds.max[1] + 85, part.position[2]]}
           center
           zIndexRange={[40, 0]}
         >
-          <div className="bg-amber-400 text-slate-950 font-extrabold font-mono text-xs px-3 py-1 rounded-lg shadow-2xl border-2 border-slate-950 whitespace-nowrap pointer-events-none">
+          <div className="bg-slate-900 text-white font-bold font-mono text-xs px-2.5 py-1 rounded shadow-lg whitespace-nowrap pointer-events-none">
             {liveBadge}
           </div>
         </Html>

@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ThreeEvent, useThree } from '@react-three/fiber';
 import { Edges, Html } from '@react-three/drei';
+import { AlertTriangle } from 'lucide-react';
 import { Part, StructuralLoadResult } from '../../types/woodcraft';
 import { useProjectStore } from '../../store/useProjectStore';
 import {
@@ -32,7 +33,9 @@ export const WoodPartMesh: React.FC<Props> = ({
   setOrbitEnabled,
 }) => {
   const { camera, raycaster, pointer } = useThree();
+  const selectedIds = useProjectStore((s) => s.selectedIds);
   const selectPart = useProjectStore((s) => s.selectPart);
+  const setPartEditMode = useProjectStore((s) => s.setPartEditMode);
   const activeNotePartId = useProjectStore((s) => s.activeNotePartId);
   const setActiveNotePartId = useProjectStore((s) => s.setActiveNotePartId);
   const movePartWithSnap = useProjectStore((s) => s.movePartWithSnap);
@@ -84,14 +87,14 @@ export const WoodPartMesh: React.FC<Props> = ({
     (loadWarning.severity === 'critical' || loadWarning.severity === 'warning');
 
   const edgeColor = isSelected
-    ? '#f59e0b'
+    ? '#0284c7'
     : hasSevereLoad
     ? '#ef4444'
     : hasCollision
     ? '#f97316'
     : hovered
-    ? '#fde047'
-    : '#1e293b';
+    ? '#38bdf8'
+    : '#475569';
 
   const hasGizmoInRay = (e: ThreeEvent<PointerEvent>): boolean => {
     for (const hit of e.intersections) {
@@ -105,22 +108,38 @@ export const WoodPartMesh: React.FC<Props> = ({
   };
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-    // CRITICAL FIX: Never let a beam in front of or behind a gizmo handle steal the click!
+    // 1. Never let a beam in front of or behind a gizmo handle steal the click
     if (hasGizmoInRay(e)) {
       return;
     }
 
     e.stopPropagation();
-    const isMulti = e.ctrlKey || e.metaKey;
-    selectPart(part.id, isMulti);
+    const isMulti = e.ctrlKey || e.metaKey || e.shiftKey;
+
+    if (isMulti) {
+      selectPart(part.id, true);
+      return;
+    }
+
+    // 2. Deselect-First Rule: If another part is currently selected, clicking outside it
+    // (even on this beam) FIRST deselects the current selection! A second click selects this beam.
+    if (selectedIds.length > 0 && !selectedIds.includes(part.id)) {
+      selectPart(null);
+      setActiveNotePartId(null);
+      return;
+    }
+
+    // 3. Single-click selects this part in 'move' mode (unless already in 'dimensions' mode on this part)
+    if (!selectedIds.includes(part.id)) {
+      selectPart(part.id, false);
+    }
 
     if (part.locked) return;
 
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     (e.target as Element)?.setPointerCapture?.(e.pointerId);
 
-    // If holding Alt or Shift, drag vertically along Y axis; otherwise drag horizontally on XZ plane
-    if (e.altKey || e.shiftKey) {
+    if (e.altKey) {
       dragModeRef.current = 'y';
       const camDir = new THREE.Vector3();
       camera.getWorldDirection(camDir);
@@ -152,6 +171,15 @@ export const WoodPartMesh: React.FC<Props> = ({
     }
   };
 
+  const handleDoubleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (hasGizmoInRay(e as unknown as ThreeEvent<PointerEvent>)) return;
+    e.stopPropagation();
+    if (!selectedIds.includes(part.id)) {
+      selectPart(part.id, false);
+    }
+    setPartEditMode('dimensions');
+  };
+
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
     if (!dragPlaneRef.current || part.locked) return;
     const distPx = Math.hypot(
@@ -159,7 +187,7 @@ export const WoodPartMesh: React.FC<Props> = ({
       e.clientY - pointerDownPosRef.current.y
     );
 
-    if (!isDraggingRef.current && distPx > 5) {
+    if (!isDraggingRef.current && distPx > 4) {
       isDraggingRef.current = true;
       setOrbitEnabled(false);
       pushHistory();
@@ -254,25 +282,26 @@ export const WoodPartMesh: React.FC<Props> = ({
         }}
         onPointerOut={() => setHovered(false)}
         onPointerDown={handlePointerDown}
+        onDoubleClick={handleDoubleClick}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
         <meshStandardMaterial
           map={texture}
           color={part.customColor || '#ffffff'}
-          roughness={0.68}
-          metalness={0.05}
+          roughness={0.62}
+          metalness={0.04}
           emissive={
             hasSevereLoad
               ? '#dc2626'
               : isSelected
-              ? '#f59e0b'
+              ? '#0284c7'
               : hasCollision
               ? '#ea580c'
               : '#000000'
           }
           emissiveIntensity={
-            hasSevereLoad ? 0.22 : isSelected ? 0.14 : hasCollision ? 0.16 : 0
+            hasSevereLoad ? 0.18 : isSelected ? 0.08 : hasCollision ? 0.12 : 0
           }
         />
         <Edges
@@ -294,9 +323,9 @@ export const WoodPartMesh: React.FC<Props> = ({
         </mesh>
       ))}
 
-      {/* ONLY render a small clickable ⚠️ button when there's an actual engineering warning or collision */}
+      {/* Clean Vector Engineering Alert Button (Only when there is a collision or load warning) */}
       {(hasSevereLoad || hasCollision) && (
-        <Html position={[0, halfT + 28, 0]} center zIndexRange={[10, 0]}>
+        <Html position={[0, halfT + 26, 0]} center zIndexRange={[10, 0]}>
           <button
             type="button"
             onClick={(e) => {
@@ -306,18 +335,18 @@ export const WoodPartMesh: React.FC<Props> = ({
                 activeNotePartId === part.id ? null : part.id
               );
             }}
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border transition cursor-pointer ${
+            className={`w-6 h-6 rounded-full flex items-center justify-center shadow-md border transition cursor-pointer ${
               hasSevereLoad
-                ? 'bg-red-600 hover:bg-red-500 text-white border-red-200 animate-bounce'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-200'
+                ? 'bg-red-600 hover:bg-red-500 text-white border-white'
+                : 'bg-amber-500 hover:bg-amber-400 text-white border-white'
             }`}
             title={
               hasSevereLoad
-                ? 'לחץ לפתיחת הערת עומסים ושקיעה על קורה זו'
-                : 'לחץ לפתיחת אפשרויות חיתוך מגרעת (Half-Lap) במפגש הקורות'
+                ? 'התראת עומסים ושקיעה — לחץ לפתיחה'
+                : 'מפגש קורות — לחץ ליצירת מגרעת (Half-Lap / Dado)'
             }
           >
-            ⚠️
+            <AlertTriangle className="w-3.5 h-3.5" />
           </button>
         </Html>
       )}

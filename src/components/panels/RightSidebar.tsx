@@ -3,30 +3,27 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { STOCK_LIBRARY, getStockById } from '../../data/stockLibrary';
 import { generateCutListGroups } from '../../utils/cutOptimizer';
 import {
-  Box,
   ChevronDown,
   ChevronLeft,
-  Copy,
+  ChevronRight,
   Eye,
   EyeOff,
   FolderPlus,
   FolderTree,
-  Layers,
   Lock,
-  Plus,
   Trash2,
   Unlock,
-  Wrench,
 } from 'lucide-react';
+import { IconScrapWood } from '../icons/WoodCraftIcons';
 
 export const RightSidebar: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'layers' | 'stock'>('layers');
-  const [stockFilter, setStockFilter] = useState<'lumber' | 'sheet' | 'hardware'>(
-    'lumber'
-  );
+  const [collapsed, setCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<'stock' | 'layers'>('stock');
+  const [stockFilter, setStockFilter] = useState<
+    'lumber' | 'sheet' | 'hardware'
+  >('lumber');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [newGroupName, setNewGroupName] = useState('');
 
   const parts = useProjectStore((s) => s.parts);
   const groups = useProjectStore((s) => s.groups);
@@ -43,96 +40,162 @@ export const RightSidebar: React.FC = () => {
   const toggleGroupVisibility = useProjectStore((s) => s.toggleGroupVisibility);
   const toggleGroupLock = useProjectStore((s) => s.toggleGroupLock);
   const toggleGroupCollapse = useProjectStore((s) => s.toggleGroupCollapse);
-  const assignPartToGroup = useProjectStore((s) => s.assignPartToGroup);
-  const duplicateSelected = useProjectStore((s) => s.duplicateSelected);
-  const deleteSelected = useProjectStore((s) => s.deleteSelected);
 
   const { partIdToLabel } = generateCutListGroups(parts);
   const ungroupedParts = parts.filter((p) => !p.groupId);
 
-  return (
-    <aside className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col h-full shrink-0 select-none">
-      {/* Top Tab Switcher */}
-      <div className="grid grid-cols-2 p-2 gap-1.5 bg-slate-950/60 border-b border-slate-800">
+  if (collapsed) {
+    return (
+      <div className="relative h-full z-20 flex items-center select-none">
         <button
-          onClick={() => setActiveTab('layers')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-            activeTab === 'layers'
-              ? 'bg-amber-500 text-slate-950 shadow'
-              : 'bg-slate-800/70 text-slate-300 hover:bg-slate-800'
+          type="button"
+          onClick={() => setCollapsed(false)}
+          className="h-14 w-6 bg-white hover:bg-slate-50 border border-r-0 border-slate-200 rounded-l-xl shadow-md flex items-center justify-center text-slate-600 hover:text-amber-600 cursor-pointer transition"
+          title="פתח ספריית עצים ושכבות"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <aside className="relative w-64 bg-white border-l border-slate-200 flex flex-col h-full shrink-0 select-none z-20 shadow-xs">
+      {/* Tinkercad-Style Side Collapse Tab */}
+      <button
+        type="button"
+        onClick={() => setCollapsed(true)}
+        className="absolute -left-5 top-1/2 -translate-y-1/2 h-12 w-5 bg-white hover:bg-slate-50 border border-r-0 border-slate-200 rounded-l-lg shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition"
+        title="קפל פאנל צד"
+      >
+        <ChevronRight className="w-3.5 h-3.5" />
+      </button>
+
+      {/* Top Compact Switcher: Wood Shapes vs Layers */}
+      <div className="grid grid-cols-2 p-1.5 gap-1 bg-slate-50 border-b border-slate-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab('stock')}
+          className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+            activeTab === 'stock'
+              ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <FolderTree className="w-4 h-4" />
-          שכבות וקבוצות ({parts.length})
+          <IconScrapWood size={15} />
+          <span>פרופילי עץ</span>
         </button>
         <button
-          onClick={() => setActiveTab('stock')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-            activeTab === 'stock'
-              ? 'bg-amber-500 text-slate-950 shadow'
-              : 'bg-slate-800/70 text-slate-300 hover:bg-slate-800'
+          type="button"
+          onClick={() => setActiveTab('layers')}
+          className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+            activeTab === 'layers'
+              ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Plus className="w-4 h-4" />
-          ספריית עץ ורכיבים
+          <FolderTree className="w-3.5 h-3.5" />
+          <span>חלקים ({parts.length})</span>
         </button>
       </div>
 
-      {/* TAB 1: Photoshop-Style Layers & Groups Panel */}
-      {activeTab === 'layers' && (
+      {/* TAB 1: SHAPE-BASED WOOD STOCK DRAWER (Like Tinkercad Basic Shapes!) */}
+      {activeTab === 'stock' && (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Quick Group & Selection Actions */}
-          <div className="p-2.5 border-b border-slate-800 bg-slate-900/50 space-y-2">
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="שם קבוצה חדשה..."
-                className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-              />
+          <div className="grid grid-cols-3 gap-1 p-1.5 border-b border-slate-100 bg-white">
+            {(
+              [
+                { id: 'lumber', label: 'קורות' },
+                { id: 'sheet', label: 'לוחות' },
+                { id: 'hardware', label: 'פרזול' },
+              ] as const
+            ).map((cat) => (
               <button
-                onClick={() => {
-                  createGroupFromSelected(newGroupName);
-                  setNewGroupName('');
-                }}
-                disabled={selectedIds.length === 0}
-                className="bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 text-amber-300 border border-amber-500/40 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-                title="קבץ את החלקים המסומנים לקבוצה אחת"
+                key={cat.id}
+                type="button"
+                onClick={() => setStockFilter(cat.id)}
+                className={`py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+                  stockFilter === cat.id
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
               >
-                <FolderPlus className="w-3.5 h-3.5" />
-                קבץ ({selectedIds.length})
+                {cat.label}
               </button>
-            </div>
-
-            <div className="flex items-center justify-between gap-1 text-[11px]">
-              <span className="text-slate-400">
-                נבחרו: <strong className="text-amber-400">{selectedIds.length}</strong>{' '}
-                (Shift+Click לבחירה מרובה)
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={duplicateSelected}
-                  disabled={selectedIds.length === 0}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded text-slate-200 cursor-pointer"
-                  title="שכפל נבחרים (Ctrl+D)"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={deleteSelected}
-                  disabled={selectedIds.length === 0}
-                  className="p-1.5 bg-red-950/60 hover:bg-red-900/80 disabled:opacity-40 rounded text-red-300 cursor-pointer"
-                  title="מחק נבחרים (Delete)"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Hierarchical Tree List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+          {/* 2-Column Shape Grid (Visual Wood Cross-Section + Dimensions) */}
+          <div className="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start">
+            {STOCK_LIBRARY.filter((s) => s.category === stockFilter).map(
+              (stock) => {
+                // Visual proportional block preview
+                const shapeW =
+                  stock.category === 'sheet'
+                    ? 48
+                    : Math.max(18, Math.min(46, Math.round(stock.width * 0.32)));
+                const shapeH =
+                  stock.category === 'sheet'
+                    ? 10
+                    : Math.max(
+                        12,
+                        Math.min(36, Math.round(stock.thickness * 0.36))
+                      );
+
+                return (
+                  <button
+                    key={stock.id}
+                    type="button"
+                    onClick={() => addPartFromStock(stock.id)}
+                    className="group bg-slate-50 hover:bg-amber-50/60 border border-slate-200 hover:border-amber-400 rounded-xl p-2 flex flex-col items-center justify-between gap-1.5 transition cursor-pointer text-center shadow-2xs"
+                    title={`${stock.name} — לחץ להוספה למשטח`}
+                  >
+                    <div className="h-11 w-full flex items-center justify-center">
+                      <div
+                        style={{
+                          width: `${shapeW}px`,
+                          height: `${shapeH}px`,
+                          backgroundColor: stock.color,
+                        }}
+                        className="rounded-xs border border-slate-700/40 shadow-xs group-hover:scale-105 transition"
+                      />
+                    </div>
+                    <div className="w-full">
+                      <div className="text-[11px] font-bold text-slate-800 truncate">
+                        {stock.name.replace(/קורת |פלטת /g, '')}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500">
+                        {stock.thickness}×{stock.width} מ"מ
+                      </div>
+                    </div>
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: CLEAN COMPACT LAYERS & GROUPS TREE */}
+      {activeTab === 'layers' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {selectedIds.length > 0 && (
+            <div className="p-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+              <span className="text-[11px] text-slate-600 font-medium">
+                נבחרו: <strong>{selectedIds.length}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => createGroupFromSelected()}
+                className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <FolderPlus className="w-3.5 h-3.5 text-amber-600" />
+                <span>קבץ</span>
+              </button>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
             {groups.map((grp) => {
               const grpParts = parts.filter((p) => p.groupId === grp.id);
               const allSelected =
@@ -142,30 +205,29 @@ export const RightSidebar: React.FC = () => {
               return (
                 <div
                   key={grp.id}
-                  className={`rounded-xl border transition ${
+                  className={`rounded-lg border transition ${
                     allSelected
-                      ? 'border-amber-500/70 bg-amber-500/5'
-                      : 'border-slate-800 bg-slate-950/40'
+                      ? 'border-sky-500 bg-sky-50/40'
+                      : 'border-slate-200 bg-slate-50/50'
                   }`}
                 >
-                  {/* Group Header */}
-                  <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-800/70">
-                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       <button
+                        type="button"
                         onClick={() => toggleGroupCollapse(grp.id)}
-                        className="text-slate-400 hover:text-slate-200 cursor-pointer"
+                        className="text-slate-400 hover:text-slate-700 cursor-pointer"
                       >
                         {grp.collapsed ? (
-                          <ChevronLeft className="w-4 h-4" />
+                          <ChevronLeft className="w-3.5 h-3.5" />
                         ) : (
-                          <ChevronDown className="w-4 h-4" />
+                          <ChevronDown className="w-3.5 h-3.5" />
                         )}
                       </button>
                       <span
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: grp.color }}
                       />
-
                       {editingGroupId === grp.id ? (
                         <input
                           type="text"
@@ -186,119 +248,66 @@ export const RightSidebar: React.FC = () => {
                               setEditingGroupId(null);
                             }
                           }}
-                          className="bg-slate-900 border border-amber-500 rounded px-1.5 py-0.5 text-xs text-white w-full"
+                          className="bg-white border border-amber-500 rounded px-1 py-0.5 text-xs text-slate-900 w-24"
                         />
                       ) : (
                         <button
+                          type="button"
                           onClick={() => selectGroup(grp.id)}
                           onDoubleClick={() => {
                             setEditingGroupId(grp.id);
                             setEditingName(grp.name);
                           }}
-                          className="text-xs font-bold text-slate-200 hover:text-amber-400 truncate text-right flex-1 cursor-pointer"
-                          title="לחיצה לבחירת כל הקבוצה | לחיצה כפולה לשינוי שם"
+                          className="text-xs font-bold text-slate-800 truncate text-right cursor-pointer"
                         >
                           {grp.name} ({grpParts.length})
                         </button>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={() => toggleGroupVisibility(grp.id)}
-                        className="p-1 text-slate-400 hover:text-slate-100 cursor-pointer"
-                        title={grp.visible ? 'הסתר קבוצה' : 'הצג קבוצה'}
+                        className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
                       >
                         {grp.visible ? (
                           <Eye className="w-3.5 h-3.5" />
                         ) : (
-                          <EyeOff className="w-3.5 h-3.5 text-slate-600" />
+                          <EyeOff className="w-3.5 h-3.5 text-red-500" />
                         )}
                       </button>
                       <button
-                        onClick={() => toggleGroupLock(grp.id)}
-                        className="p-1 text-slate-400 hover:text-slate-100 cursor-pointer"
-                        title={grp.locked ? 'בטל נעילת קבוצה' : 'נעל קבוצה'}
-                      >
-                        {grp.locked ? (
-                          <Lock className="w-3.5 h-3.5 text-amber-400" />
-                        ) : (
-                          <Unlock className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                      <button
+                        type="button"
                         onClick={() => ungroup(grp.id)}
-                        className="text-[10px] text-slate-400 hover:text-red-400 px-1 cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
                         title="פרק קבוצה"
                       >
-                        פרק
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Group Children */}
                   {!grp.collapsed && (
-                    <div className="p-1.5 space-y-1">
+                    <div className="px-1.5 pb-1.5 space-y-1 border-t border-slate-200/60 pt-1">
                       {grpParts.map((part) => {
                         const isSel = selectedIds.includes(part.id);
-                        const lbl = partIdToLabel[part.id] || '?';
                         return (
                           <div
                             key={part.id}
                             onClick={(e) =>
                               selectPart(part.id, e.shiftKey || e.ctrlKey)
                             }
-                            className={`flex items-center justify-between px-2 py-1.5 rounded-lg text-xs cursor-pointer transition ${
+                            className={`flex items-center justify-between px-2 py-1 rounded text-xs cursor-pointer transition ${
                               isSel
-                                ? 'bg-amber-500/20 border border-amber-500/60 text-amber-200'
-                                : 'hover:bg-slate-800/70 text-slate-300 border border-transparent'
+                                ? 'bg-sky-500 text-white font-bold'
+                                : 'hover:bg-white text-slate-700'
                             }`}
                           >
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="px-1.5 py-0.2 bg-slate-800 text-amber-400 font-mono font-bold text-[10px] rounded">
-                                {lbl}
-                              </span>
-                              <span className="truncate font-medium">
-                                {part.name}
-                              </span>
-                            </div>
-                            <div
-                              className="flex items-center gap-1 shrink-0"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                onClick={() =>
-                                  updatePart(
-                                    part.id,
-                                    { visible: !part.visible },
-                                    false
-                                  )
-                                }
-                                className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
-                              >
-                                {part.visible ? (
-                                  <Eye className="w-3.5 h-3.5" />
-                                ) : (
-                                  <EyeOff className="w-3.5 h-3.5 text-slate-600" />
-                                )}
-                              </button>
-                              <button
-                                onClick={() =>
-                                  updatePart(
-                                    part.id,
-                                    { locked: !part.locked },
-                                    false
-                                  )
-                                }
-                                className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
-                              >
-                                {part.locked ? (
-                                  <Lock className="w-3.5 h-3.5 text-amber-400" />
-                                ) : (
-                                  <Unlock className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                            </div>
+                            <span className="truncate">{part.name}</span>
+                            <span className="font-mono text-[10px] opacity-80">
+                              {Math.round(part.dimensions.length)}
+                            </span>
                           </div>
                         );
                       })}
@@ -308,173 +317,76 @@ export const RightSidebar: React.FC = () => {
               );
             })}
 
-            {/* Ungrouped Parts Section */}
-            {ungroupedParts.length > 0 && (
-              <div className="space-y-1">
-                <div className="text-[11px] font-semibold text-slate-400 px-1 pt-1 flex items-center justify-between">
-                  <span>חלקים ללא קבוצה ({ungroupedParts.length})</span>
-                </div>
-                {ungroupedParts.map((part) => {
-                  const isSel = selectedIds.includes(part.id);
-                  const lbl = partIdToLabel[part.id] || '?';
-                  const stock = getStockById(part.stockId);
-                  return (
-                    <div
-                      key={part.id}
-                      onClick={(e) =>
-                        selectPart(part.id, e.shiftKey || e.ctrlKey)
-                      }
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition ${
-                        isSel
-                          ? 'bg-amber-500/20 border border-amber-500/60 text-amber-200'
-                          : 'bg-slate-950/40 hover:bg-slate-800/70 text-slate-300 border border-slate-800/80'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="px-1.5 py-0.2 bg-slate-800 text-amber-400 font-mono font-bold text-[10px] rounded">
-                          {lbl}
-                        </span>
-                        <div className="truncate">
-                          <div className="font-medium truncate">{part.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            {part.dimensions.length}×{part.dimensions.width}×
-                            {part.dimensions.thickness} מ"מ ({stock.species})
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className="flex items-center gap-1 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {groups.length > 0 && (
-                          <select
-                            value={part.groupId || ''}
-                            onChange={(e) =>
-                              assignPartToGroup(
-                                part.id,
-                                e.target.value || null
-                              )
-                            }
-                            className="bg-slate-900 border border-slate-700 rounded text-[10px] px-1 py-0.5 text-slate-300"
-                            title="שייך לקבוצה"
-                          >
-                            <option value="">ללא קבוצה</option>
-                            {groups.map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        <button
-                          onClick={() =>
-                            updatePart(
-                              part.id,
-                              { visible: !part.visible },
-                              false
-                            )
-                          }
-                          className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
-                        >
-                          {part.visible ? (
-                            <Eye className="w-3.5 h-3.5" />
-                          ) : (
-                            <EyeOff className="w-3.5 h-3.5 text-slate-600" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() =>
-                            updatePart(part.id, { locked: !part.locked }, false)
-                          }
-                          className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
-                        >
-                          {part.locked ? (
-                            <Lock className="w-3.5 h-3.5 text-amber-400" />
-                          ) : (
-                            <Unlock className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: Stock Library (Dimensional Lumber, Sheet Goods, Hardware) */}
-      {activeTab === 'stock' && (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="grid grid-cols-3 gap-1 p-2 border-b border-slate-800 bg-slate-950/40">
-            <button
-              onClick={() => setStockFilter('lumber')}
-              className={`py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer ${
-                stockFilter === 'lumber'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Box className="w-3.5 h-3.5" />
-              קורות עץ
-            </button>
-            <button
-              onClick={() => setStockFilter('sheet')}
-              className={`py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer ${
-                stockFilter === 'sheet'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              פלטות לבוד
-            </button>
-            <button
-              onClick={() => setStockFilter('hardware')}
-              className={`py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer ${
-                stockFilter === 'hardware'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Wrench className="w-3.5 h-3.5" />
-              פרזול
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
-            {STOCK_LIBRARY.filter((s) => s.category === stockFilter).map(
-              (item) => (
+            {ungroupedParts.map((part) => {
+              const isSel = selectedIds.includes(part.id);
+              const stock = getStockById(part.stockId);
+              return (
                 <div
-                  key={item.id}
-                  onClick={() => addPartFromStock(item.id)}
-                  className="group p-3 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-amber-500/60 transition cursor-pointer flex items-center justify-between gap-2 shadow-sm"
+                  key={part.id}
+                  onClick={(e) =>
+                    selectPart(part.id, e.shiftKey || e.ctrlKey || e.metaKey)
+                  }
+                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition ${
+                    isSel
+                      ? 'bg-sky-50 border-sky-500 text-slate-900 font-bold'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
                 >
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <div
-                      className="w-8 h-8 rounded-lg border border-white/20 shrink-0 mt-0.5 shadow-inner"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-100 group-hover:text-amber-300 transition">
-                        {item.name}
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        {item.nominalName}
-                      </div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        חוזק אלסטי E={item.elasticModulusGPa} GPa | צפיפות{' '}
-                        {item.densityKgM3} ק"ג/מ"ק
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-5 h-5 rounded text-[10px] font-mono font-bold flex items-center justify-center shrink-0 border border-slate-300"
+                      style={{ backgroundColor: stock.color, color: '#0f172a' }}
+                    >
+                      {partIdToLabel[part.id] || '•'}
+                    </span>
+                    <div className="truncate">
+                      <div className="truncate">{part.name}</div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        {part.dimensions.thickness}×{part.dimensions.width}×
+                        {Math.round(part.dimensions.length)}
                       </div>
                     </div>
                   </div>
-                  <button className="bg-amber-500/15 group-hover:bg-amber-500 text-amber-400 group-hover:text-slate-950 p-1.5 rounded-lg transition shrink-0">
-                    <Plus className="w-4 h-4" />
-                  </button>
+
+                  <div
+                    className="flex items-center gap-0.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updatePart(part.id, { visible: !part.visible })
+                      }
+                      className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+                    >
+                      {part.visible ? (
+                        <Eye className="w-3.5 h-3.5" />
+                      ) : (
+                        <EyeOff className="w-3.5 h-3.5 text-red-500" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updatePart(part.id, { locked: !part.locked })
+                      }
+                      className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+                    >
+                      {part.locked ? (
+                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                      ) : (
+                        <Unlock className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-              )
+              );
+            })}
+
+            {parts.length === 0 && (
+              <div className="text-center py-8 text-xs text-slate-400">
+                אין חלקים במשטח העבודה
+              </div>
             )}
           </div>
         </div>

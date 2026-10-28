@@ -5,6 +5,7 @@ import {
   GizmoHelper,
   GizmoViewcube,
   Grid,
+  Line,
   OrbitControls,
 } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -20,18 +21,19 @@ import { InteractiveGizmoHandles } from './InteractiveGizmoHandles';
 import { LiveDimensions3D } from './LiveDimensions3D';
 import { RoomContextMesh } from './RoomContextMesh';
 import { ViewCubeOverlay } from './ViewCubeOverlay';
+import { LeftInspectorPanel } from '../panels/LeftInspectorPanel';
 import {
   AlertTriangle,
-  LayoutTemplate,
-  Maximize2,
-  Move,
   Plus,
   RotateCw,
   Scissors,
   ShieldAlert,
-  Wand2,
   X,
 } from 'lucide-react';
+import {
+  IconAiBlueprint,
+  IconTemplatesGrid,
+} from '../icons/WoodCraftIcons';
 
 const CameraPresetController: React.FC<{
   orbitRef: React.RefObject<OrbitControlsImpl | null>;
@@ -148,13 +150,13 @@ export const Viewport3D: React.FC = () => {
   const parts = useProjectStore((s) => s.parts);
   const selectedIds = useProjectStore((s) => s.selectedIds);
   const selectPart = useProjectStore((s) => s.selectPart);
-  const gizmoMode = useProjectStore((s) => s.gizmoMode);
-  const setGizmoMode = useProjectStore((s) => s.setGizmoMode);
   const activeNotePartId = useProjectStore((s) => s.activeNotePartId);
   const setActiveNotePartId = useProjectStore((s) => s.setActiveNotePartId);
   const createParametricDado = useProjectStore((s) => s.createParametricDado);
   const rotatePartWithPivot = useProjectStore((s) => s.rotatePartWithPivot);
   const addPartFromStock = useProjectStore((s) => s.addPartFromStock);
+  const gridSnapStepMm = useProjectStore((s) => s.gridSnapStepMm);
+  const setGridSnapStepMm = useProjectStore((s) => s.setGridSnapStepMm);
 
   const [orbitEnabled, setOrbitEnabled] = useState(true);
   const [pillDismissed, setPillDismissed] = useState(false);
@@ -200,7 +202,6 @@ export const Viewport3D: React.FC = () => {
       ? parts.find((p) => p.id === selectedIds[0])
       : undefined;
 
-  // Details for the currently clicked beam note (`activeNotePartId`)
   const activeNotePart = activeNotePartId
     ? parts.find((p) => p.id === activeNotePartId)
     : undefined;
@@ -217,67 +218,12 @@ export const Viewport3D: React.FC = () => {
   const totalAlertsCount = warningLoads.length + unresolvedCollisions.length;
 
   return (
-    <div className="relative w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 overflow-hidden">
-      {/* Tinkercad-style Circular Buttons below the 3D ViewCube */}
+    <div className="relative w-full h-full bg-gradient-to-b from-[#f8fafc] via-[#f4f7fb] to-[#eaeff5] overflow-hidden">
+      {/* Tinkercad-style White Circular Camera Controls on Left */}
       <ViewCubeOverlay />
 
-      {/* Top-Center Clean Gizmo Mode Bar (Tinkercad Unified vs Isolated Modes) */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-xl select-none">
-        <span className="text-[11px] text-slate-400 font-medium pl-1 border-l border-slate-800">
-          שליטה ב-3D:
-        </span>
-        <button
-          type="button"
-          onClick={() => setGizmoMode('tinkercad')}
-          className={`px-2.5 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
-            gizmoMode === 'tinkercad'
-              ? 'bg-amber-400 text-slate-950 shadow'
-              : 'text-slate-300 hover:bg-slate-800'
-          }`}
-          title="מצב טינקרקאד מאוחד: ריבועי מתיחה (↔), הקלדת מידה בלחיצה, חרוט גובה (▲) וטבעות סיבוב יחד!"
-        >
-          ✨ הכל יחד (טינקרקאד)
-        </button>
-        <button
-          type="button"
-          onClick={() => setGizmoMode('move')}
-          className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
-            gizmoMode === 'move'
-              ? 'bg-emerald-500 text-slate-950 shadow'
-              : 'text-slate-300 hover:bg-slate-800'
-          }`}
-          title="הזזה בצירים X/Z והרמה/הורדה לגובה (ציר Y ירוק או החזקת Shift+גרירה)"
-        >
-          <Move className="w-3.5 h-3.5" />
-          הזזה וגובה
-        </button>
-        <button
-          type="button"
-          onClick={() => setGizmoMode('stretch')}
-          className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
-            gizmoMode === 'stretch'
-              ? 'bg-amber-500 text-slate-950 shadow'
-              : 'text-slate-300 hover:bg-slate-800'
-          }`}
-          title="ריבועי מתיחה לבנים/צהובים בקצוות הקורה והקלדת מידה ישירה"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-          מתיחה ומידות
-        </button>
-        <button
-          type="button"
-          onClick={() => setGizmoMode('rotate')}
-          className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
-            gizmoMode === 'rotate'
-              ? 'bg-pink-500 text-white shadow'
-              : 'text-slate-300 hover:bg-slate-800'
-          }`}
-          title="טבעות סיבוב סביב נקודת העוגן הנבחרת (🎯)"
-        >
-          <RotateCw className="w-3.5 h-3.5" />
-          סיבוב (🎯)
-        </button>
-      </div>
+      {/* Floating Tool Popover & Compact Shape Inspector Card */}
+      <LeftInspectorPanel />
 
       {/* Three.js Canvas */}
       <Canvas
@@ -297,43 +243,69 @@ export const Viewport3D: React.FC = () => {
       >
         <CameraPresetController orbitRef={orbitRef} />
 
-        {/* Real 3D Interactive Tinkercad ViewCube in Top-Left (supports Faces, 45° Edges & 45° Corners!) */}
-        <GizmoHelper alignment="top-left" margin={[70, 70]}>
+        {/* Real 3D Interactive Tinkercad ViewCube in Top-Left */}
+        <GizmoHelper alignment="top-left" margin={[62, 62]}>
           <GizmoViewcube
             faces={['ימין', 'שמאל', 'עליון', 'תחתון', 'חזית', 'אחור']}
-            color="#f8fafc"
-            textColor="#0f172a"
-            strokeColor="#334155"
-            hoverColor="#f59e0b"
-            opacity={0.95}
+            color="#ffffff"
+            textColor="#334155"
+            strokeColor="#cbd5e1"
+            hoverColor="#38bdf8"
+            opacity={0.98}
           />
         </GizmoHelper>
 
-        <ambientLight intensity={0.72} />
+        <ambientLight intensity={0.88} />
         <directionalLight
           position={[1800, 3200, 1600]}
-          intensity={1.15}
+          intensity={1.1}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
         />
         <directionalLight position={[-1600, 1400, -1400]} intensity={0.45} />
 
-        {/* Calibrated Floor Grid (100mm cells, 1000mm sections) */}
+        {/* Tinkercad-Style Light-Blue Workplane Surface & Grid */}
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, -0.5, 0]}
+          receiveShadow
+        >
+          <planeGeometry args={[3000, 3000]} />
+          <meshStandardMaterial
+            color="#f0f9ff"
+            roughness={0.95}
+            metalness={0}
+          />
+        </mesh>
+
         <Grid
           position={[0, 0, 0]}
-          args={[10000, 10000]}
+          args={[3000, 3000]}
           cellSize={100}
-          cellThickness={0.6}
-          cellColor="#334155"
-          sectionSize={1000}
-          sectionThickness={1.2}
-          sectionColor="#475569"
-          fadeDistance={7500}
-          fadeStrength={1.2}
+          cellThickness={0.7}
+          cellColor="#bae6fd"
+          sectionSize={500}
+          sectionThickness={1.25}
+          sectionColor="#38bdf8"
+          fadeDistance={4200}
+          fadeStrength={0.6}
         />
 
-        {/* IKEA-style Room Environment */}
+        {/* Crisp Tinkercad Workplane Outer Border */}
+        <Line
+          points={[
+            [-1500, 1, -1500],
+            [1500, 1, -1500],
+            [1500, 1, 1500],
+            [-1500, 1, 1500],
+            [-1500, 1, -1500],
+          ]}
+          color="#0284c7"
+          lineWidth={2}
+        />
+
+        {/* Room Environment */}
         <RoomContextMesh />
 
         {/* Render all Parts */}
@@ -350,7 +322,7 @@ export const Viewport3D: React.FC = () => {
           />
         ))}
 
-        {/* Interactive Gizmo (Move Arrows, Stretch Handles, Pivot Pin 🎯 & Axis Rotation Rings) */}
+        {/* Clean Shape-Driven Tinkercad Handles (Single-Click Move/Pivot vs Double-Click Dimensions) */}
         {primarySelectedPart && (
           <InteractiveGizmoHandles
             part={primarySelectedPart}
@@ -372,66 +344,72 @@ export const Viewport3D: React.FC = () => {
         />
       </Canvas>
 
-      {/* Clean Empty-State Quick Launcher Card when Workspace has 0 parts */}
+      {/* Tinkercad Bottom-Left Snap Grid Selector */}
+      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm text-xs text-slate-700 select-none">
+        <span className="text-[11px] font-medium text-slate-500">
+          רשת הצמדה:
+        </span>
+        <select
+          value={gridSnapStepMm}
+          onChange={(e) => setGridSnapStepMm(Number(e.target.value))}
+          className="bg-transparent font-mono font-bold text-slate-800 outline-none cursor-pointer"
+        >
+          <option value={1}>1.0 מ"מ</option>
+          <option value={5}>5.0 מ"מ</option>
+          <option value={10}>10.0 מ"מ</option>
+          <option value={25}>25.0 מ"מ</option>
+        </select>
+      </div>
+
+      {/* Minimal Empty-State Launcher Pill when Workspace has 0 parts */}
       {parts.length === 0 && (
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 p-4">
-          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl p-6 max-w-md w-full shadow-2xl text-center space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-white">
-                משטח העבודה נקי ומוכן לתכנון
-              </h3>
-              <p className="text-xs text-slate-400">
-                בחר איך תרצה להתחיל את הפרויקט שלך:
-              </p>
-            </div>
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10">
+          <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-2.5 shadow-lg flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent('woodcraft:open-modal', {
+                    detail: 'generator',
+                  })
+                )
+              }
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <IconAiBlueprint size={15} />
+              <span>מחולל מוצרים</span>
+            </button>
 
-            <div className="grid grid-cols-1 gap-2.5">
-              <button
-                type="button"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent('woodcraft:open-modal', {
-                      detail: 'generator',
-                    })
-                  )
-                }
-                className="w-full bg-gradient-to-l from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
-              >
-                <Wand2 className="w-4 h-4" />
-                ✨ ג'נרט מוצר חכם / פרויקט משאריות עץ
-              </button>
+            <button
+              type="button"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent('woodcraft:open-modal', {
+                    detail: 'templates',
+                  })
+                )
+              }
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <IconTemplatesGrid size={15} />
+              <span>תבניות מוכנות</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent('woodcraft:open-modal', {
-                      detail: 'templates',
-                    })
-                  )
-                }
-                className="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-              >
-                <LayoutTemplate className="w-4 h-4" />
-                בחר מתוך תבניות מוכנות (מאומתות ויזואלית)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => addPartFromStock('pine-5x10')}
-                className="w-full bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 font-semibold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                <Plus className="w-4 h-4 text-emerald-400" />
-                או הוסף קורת עץ ראשונה והתחל מאפס
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => addPartFromStock('pine-5x10')}
+              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 text-amber-600" />
+              <span>קורת עץ חדשה</span>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Small Unobtrusive Corner Pill when no note is open (with X to hide) */}
+      {/* Small Unobtrusive Corner Alert Pill */}
       {!activeNotePart && totalAlertsCount > 0 && !pillDismissed && (
-        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-md border border-amber-500/50 text-slate-200 px-3 py-1.5 rounded-full shadow-xl text-xs">
+        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 bg-white/95 backdrop-blur-md border border-amber-300 text-slate-800 px-3 py-1.5 rounded-full shadow-md text-xs">
           <button
             type="button"
             onClick={() => {
@@ -442,62 +420,56 @@ export const Viewport3D: React.FC = () => {
                 setActiveNotePartId(firstId);
               }
             }}
-            className="flex items-center gap-1.5 hover:text-amber-300 font-semibold cursor-pointer"
+            className="flex items-center gap-1.5 hover:text-amber-600 font-bold cursor-pointer"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-            <span>
-              {totalAlertsCount} הערות הנדסיות (לחץ על הסימון ⚠️ שעל הקורה לפתיחה)
-            </span>
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+            <span>{totalAlertsCount} התראות הנדסיות</span>
           </button>
           <button
             type="button"
             onClick={() => setPillDismissed(true)}
-            className="text-slate-400 hover:text-white p-0.5 rounded-full cursor-pointer mr-1"
-            title="הסתר הודעה זו"
+            className="text-slate-400 hover:text-slate-700 p-0.5 rounded-full cursor-pointer mr-1"
+            title="הסתר"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* On-Demand Note Popover Card (ONLY opens when clicking ⚠️ on a beam, with an X close button!) */}
+      {/* On-Demand Note Popover Card */}
       {activeNotePart &&
         (activeNoteLoad || activeNoteCollisions.length > 0) && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-lg w-[92%] bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl p-4 space-y-3 text-xs">
-            {/* Header with Part Name & X Close Button */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div className="flex items-center gap-2 font-bold text-sm text-white">
-                <span className="bg-amber-500 text-slate-950 font-mono px-2 py-0.5 rounded text-xs">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-md w-[92%] bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 space-y-3 text-xs text-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
+                <span className="bg-amber-500 text-white font-mono px-2 py-0.5 rounded text-xs">
                   {partIdToLabel[activeNotePart.id] || '?'}
                 </span>
-                <span>הערות הנדסיות עבור: {activeNotePart.name}</span>
+                <span>{activeNotePart.name}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveNotePartId(null)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1 rounded-lg transition cursor-pointer"
-                title="סגור הערה (X)"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-1 rounded-lg transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* 1. Structural Sag Note (if applicable) */}
             {activeNoteLoad &&
               (activeNoteLoad.severity === 'critical' ||
                 activeNoteLoad.severity === 'warning') && (
-                <div className="bg-red-950/60 border border-red-500/60 rounded-xl p-3 space-y-2 text-red-100">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2 text-red-900">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold flex items-center gap-1.5 text-red-200">
-                      <ShieldAlert className="w-4 h-4 text-red-400" />
+                    <span className="font-bold flex items-center gap-1.5 text-red-700">
+                      <ShieldAlert className="w-4 h-4 text-red-600" />
                       התראת עומסים וכפיפה
                     </span>
-                    <span className="bg-red-900/80 px-2 py-0.5 rounded font-mono text-[11px]">
-                      שקיעה צפויה: {activeNoteLoad.deflectionMm} מ"מ (מפתח{' '}
-                      {Math.round(activeNoteLoad.unsupportedSpanMm / 10)} ס"מ)
+                    <span className="bg-white border border-red-200 px-2 py-0.5 rounded font-mono text-[11px]">
+                      שקיעה: {activeNoteLoad.deflectionMm} מ"מ
                     </span>
                   </div>
-                  <p className="leading-relaxed text-red-100/90">
+                  <p className="leading-relaxed text-red-800">
                     {activeNoteLoad.recommendationHe}
                   </p>
                   {activeNoteLoad.isLaidFlat && (
@@ -511,17 +483,15 @@ export const Viewport3D: React.FC = () => {
                         ]);
                         setActiveNotePartId(null);
                       }}
-                      className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
-                      סובב קורה ב-90° על דופנה (יקטין שקיעה ל-
-                      {activeNoteLoad.edgewiseDeflectionMm} מ"מ)
+                      סובב קורה ב-90° על דופנה
                     </button>
                   )}
                 </div>
               )}
 
-            {/* 2. Collision / Half-Lap Dado Note (if applicable) */}
             {activeNoteCollisions.map((col) => {
               const otherId =
                 col.partAId === activeNotePart.id ? col.partBId : col.partAId;
@@ -532,11 +502,11 @@ export const Viewport3D: React.FC = () => {
               return (
                 <div
                   key={col.id}
-                  className="bg-amber-950/50 border border-amber-500/60 rounded-xl p-3 space-y-2 text-amber-100"
+                  className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2 text-amber-950"
                 >
-                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>חפיפה / מפגש עם הקורה "{otherName}"</span>
+                  <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <span>מפגש עם הקורה "{otherName}"</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -549,10 +519,10 @@ export const Viewport3D: React.FC = () => {
                         );
                         setActiveNotePartId(null);
                       }}
-                      className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 transition cursor-pointer"
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 transition cursor-pointer"
                     >
                       <Scissors className="w-3.5 h-3.5" />
-                      צור מגרעת חצי-חצי (Half-Lap)
+                      מגרעת חצי-חצי (Half-Lap)
                     </button>
                     <button
                       type="button"
@@ -564,7 +534,7 @@ export const Viewport3D: React.FC = () => {
                         );
                         setActiveNotePartId(null);
                       }}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 py-1.5 rounded-lg transition cursor-pointer"
+                      className="flex-1 bg-white hover:bg-slate-50 text-slate-800 border border-amber-300 font-bold py-1.5 rounded-lg transition cursor-pointer"
                     >
                       מגרעת מלאה (Dado)
                     </button>

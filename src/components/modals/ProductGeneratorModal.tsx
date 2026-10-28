@@ -46,7 +46,7 @@ const STORAGE_KEY_API = 'woodcraft_gemini_key';
 const PRESET_PROMPTS = [
   {
     id: 'baby-swing',
-    label: '👶 נדנדת תינוקות מוגנת',
+    label: 'נדנדת תינוקות מוגנת',
     prompt: 'נדנדת גינה תלויה לתינוקות עם מעקה בטיחות T-Bar',
     defaultW: 1400,
     defaultD: 1150,
@@ -54,7 +54,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'swing',
-    label: '🎢 נדנדת גינה A-Frame',
+    label: 'נדנדת גינה A-Frame',
     prompt: 'נדנדת גינה עם מסגרת A-Frame וספסל תלוי',
     defaultW: 2100,
     defaultD: 1350,
@@ -62,7 +62,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'pergola',
-    label: '🏛️ פרגולת עץ קלאסית',
+    label: 'פרגולת עץ קלאסית',
     prompt: 'פרגולה מעץ אורן עם קורות הצללה',
     defaultW: 3200,
     defaultD: 2600,
@@ -70,7 +70,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'picnic',
-    label: '🧺 שולחן פיקניק משולב',
+    label: 'שולחן פיקניק משולב',
     prompt: 'שולחן פיקניק לגינה משולב שני ספסלים',
     defaultW: 1800,
     defaultD: 1500,
@@ -78,7 +78,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'zula',
-    label: '🛋️ ספת זולה רחבה',
+    label: 'ספת זולה רחבה',
     prompt: 'ספת זולה לגינה עם משענת גב וידיות רחבות',
     defaultW: 1700,
     defaultD: 800,
@@ -86,7 +86,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'bed',
-    label: '🛏️ מיטה זוגית מעץ מלא',
+    label: 'מיטה זוגית מעץ מלא',
     prompt: 'מיטה זוגית מעץ עם ראש מיטה ושלבים',
     defaultW: 1690,
     defaultD: 2090,
@@ -94,7 +94,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'step-tower',
-    label: '🪜 מגדל למידה מונטסורי',
+    label: 'מגדל למידה מונטסורי',
     prompt: 'מגדל למידה מונטסורי לילדים עם מדרגה ומעקה בטיחות',
     defaultW: 480,
     defaultD: 460,
@@ -102,7 +102,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'bookshelf',
-    label: '📚 ספריית מדפים מבירץ׳',
+    label: 'ספריית מדפים מבירץ׳',
     prompt: 'ספריית מדפים מעץ בירץ׳ עם 5 קומות',
     defaultW: 950,
     defaultD: 350,
@@ -110,7 +110,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'planter',
-    label: '🌱 אדנית עץ מוגבהת',
+    label: 'אדנית עץ מוגבהת',
     prompt: 'אדנית עץ מוגבהת עם שפה עליונה בחיתוך גרונג',
     defaultW: 1200,
     defaultD: 550,
@@ -118,7 +118,7 @@ const PRESET_PROMPTS = [
   },
   {
     id: 'doghouse',
-    label: '🐶 מלונה עם גג משופע',
+    label: 'מלונה עם גג משופע',
     prompt: 'מלונה לכלב מעץ עם גג משופע ורצפה מוגבהת',
     defaultW: 920,
     defaultD: 1050,
@@ -470,7 +470,7 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             }`}
           >
             <Wand2 className="w-4 h-4" />
-            ✨ ג'ינרוט מוצר חופשי / מרשימה
+            ג'ינרוט מוצר חופשי / מרשימה
           </button>
 
           <button
@@ -487,7 +487,7 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             }`}
           >
             <Recycle className="w-4 h-4" />
-            🪵 יש לי שאריות עץ — מה אפשר לבנות איתן?
+            יש לי שאריות עץ — מה אפשר לבנות איתן?
           </button>
         </div>
 

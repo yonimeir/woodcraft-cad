@@ -13,49 +13,52 @@ export const ViewCubeOverlay: React.FC = () => {
   ];
   const [cornerIdx, setCornerIdx] = React.useState(0);
 
+  const circleBtn =
+    'w-9 h-9 rounded-full bg-white hover:bg-slate-50 text-slate-700 hover:text-amber-600 border border-slate-200/90 shadow-md flex items-center justify-center transition cursor-pointer';
+
   return (
     <div
-      className="absolute top-36 left-5 z-20 flex flex-col items-center gap-2 select-none"
-      title="כלי ניווט מצלמה (בסגנון Tinkercad)"
+      className="absolute top-36 left-4 z-20 flex flex-col items-center gap-2 select-none"
+      title="כלי ניווט מצלמה"
     >
-      {/* 1. Home View (איפוס מבט בית איזומטרי) */}
+      {/* 1. Home View */}
       <button
         type="button"
         onClick={() => requestCameraView('iso')}
-        className="w-10 h-10 rounded-full bg-slate-900/90 hover:bg-amber-500 text-slate-100 hover:text-slate-950 border-2 border-slate-600/80 hover:border-amber-300 shadow-xl flex items-center justify-center transition cursor-pointer"
-        title="מבט בית תלת-ממדי (Home View)"
+        className={circleBtn}
+        title="מבט בית תלת-ממדי"
       >
-        <Home className="w-4.5 h-4.5" />
+        <Home className="w-4 h-4" />
       </button>
 
-      {/* 2. Fit to View (מיקוד בחלק הנבחר / התאמה למסך) */}
+      {/* 2. Fit to View */}
       <button
         type="button"
         onClick={() => requestCameraView('fit')}
-        className="w-10 h-10 rounded-full bg-slate-900/90 hover:bg-amber-500 text-slate-100 hover:text-slate-950 border-2 border-slate-600/80 hover:border-amber-300 shadow-xl flex items-center justify-center transition cursor-pointer"
-        title="מרכז והתאם מבט לחלק הנבחר (Fit View)"
+        className={circleBtn}
+        title="מרכז והתאם מבט לחלק הנבחר (F)"
       >
-        <Maximize2 className="w-4.5 h-4.5" />
+        <Maximize2 className="w-4 h-4" />
       </button>
 
       {/* 3. Zoom In (+) */}
       <button
         type="button"
         onClick={() => requestCameraView('zoom-in')}
-        className="w-10 h-10 rounded-full bg-slate-900/90 hover:bg-amber-500 text-slate-100 hover:text-slate-950 border-2 border-slate-600/80 hover:border-amber-300 shadow-xl flex items-center justify-center transition cursor-pointer"
-        title="התקרב (Zoom In)"
+        className={circleBtn}
+        title="התקרב (+)"
       >
-        <Plus className="w-5 h-5" />
+        <Plus className="w-4.5 h-4.5" />
       </button>
 
       {/* 4. Zoom Out (-) */}
       <button
         type="button"
         onClick={() => requestCameraView('zoom-out')}
-        className="w-10 h-10 rounded-full bg-slate-900/90 hover:bg-amber-500 text-slate-100 hover:text-slate-950 border-2 border-slate-600/80 hover:border-amber-300 shadow-xl flex items-center justify-center transition cursor-pointer"
-        title="התרחק (Zoom Out)"
+        className={circleBtn}
+        title="התרחק (-)"
       >
-        <Minus className="w-5 h-5" />
+        <Minus className="w-4.5 h-4.5" />
       </button>
 
       {/* 5. Rotate 45° Corner Isometric View */}
@@ -66,13 +69,10 @@ export const ViewCubeOverlay: React.FC = () => {
           setCornerIdx(next);
           requestCameraView(cycle45Views[next]);
         }}
-        className="w-10 h-10 rounded-full bg-slate-900/90 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border-2 border-slate-600/80 hover:border-amber-300 shadow-xl flex flex-col items-center justify-center transition cursor-pointer"
-        title="סובב בין פינות מבט של 45° (ניתן גם ללחוץ ישירות על פינות וצלעות הקובייה למעלה)"
+        className={circleBtn}
+        title="סובב בין פינות מבט של 45°"
       >
         <Box className="w-4 h-4" />
-        <span className="text-[8px] font-mono font-bold leading-none mt-0.5">
-          45°
-        </span>
       </button>
     </div>
   );
