@@ -68,6 +68,8 @@ interface ProjectState {
   room: RoomEnvironment;
   optimizerSettings: CutOptimizerSettings;
   toasts: ToastNotice[];
+  clipboardParts: Part[];
+  pasteCount: number;
   past: HistorySnapshot[];
   future: HistorySnapshot[];
 
@@ -115,6 +117,9 @@ interface ProjectState {
   ) => void;
   moveSelectedDelta: (delta: [number, number, number], recordHistory?: boolean) => void;
   dropSelectedToFloor: () => void;
+  copySelected: () => void;
+  cutSelected: () => void;
+  pasteClipboard: () => void;
   duplicateSelected: () => void;
   deleteSelected: () => void;
 
@@ -283,6 +288,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   room: initial.room,
   optimizerSettings: initial.optimizerSettings,
   toasts: [],
+  clipboardParts: [],
+  pasteCount: 0,
   past: [],
   future: [],
 
@@ -634,6 +641,85 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     get().validateAndCleanDados();
     saveToLocalStorage({ ...get(), parts: get().parts });
     get().addToast('החלק הונח צמוד לרצפה (Y=0)', 'info');
+  },
+
+  copySelected: () => {
+    const { parts, selectedIds } = get();
+    if (selectedIds.length === 0) return;
+    const selectedParts = parts
+      .filter((p) => selectedIds.includes(p.id))
+      .map((p) => JSON.parse(JSON.stringify(p)) as Part);
+    if (selectedParts.length === 0) return;
+
+    set({ clipboardParts: selectedParts, pasteCount: 0 });
+    get().addToast(
+      `הועתקו ללוח ${selectedParts.length} חלקים (לחץ Ctrl+V להדבקה)`,
+      'info'
+    );
+  },
+
+  cutSelected: () => {
+    const { parts, selectedIds } = get();
+    if (selectedIds.length === 0) return;
+    const selectedParts = parts
+      .filter((p) => selectedIds.includes(p.id) && !p.locked)
+      .map((p) => JSON.parse(JSON.stringify(p)) as Part);
+    if (selectedParts.length === 0) return;
+
+    get().pushHistory();
+    const nextParts = parts.filter((p) => !selectedIds.includes(p.id) || p.locked);
+    set({
+      parts: nextParts,
+      selectedIds: [],
+      clipboardParts: selectedParts,
+      pasteCount: 0,
+    });
+    get().validateAndCleanDados();
+    saveToLocalStorage({ ...get(), parts: get().parts });
+    get().addToast(
+      `נגזרו ללוח ${selectedParts.length} חלקים (לחץ Ctrl+V להדבקה)`,
+      'info'
+    );
+  },
+
+  pasteClipboard: () => {
+    const { parts, clipboardParts, pasteCount } = get();
+    if (clipboardParts.length === 0) return;
+    get().pushHistory();
+
+    const nextPasteCount = pasteCount + 1;
+    const offset = 60 * nextPasteCount;
+    const newClones: Part[] = [];
+    const newIds: string[] = [];
+
+    for (const orig of clipboardParts) {
+      const cloneId = `part-${Date.now().toString(36)}-${Math.random()
+        .toString(36)
+        .slice(2, 6)}`;
+      newIds.push(cloneId);
+      const cleanName = orig.name.replace(/\s*\(עותק\)$/, '');
+      newClones.push({
+        ...JSON.parse(JSON.stringify(orig)),
+        id: cloneId,
+        name: `${cleanName} (עותק)`,
+        position: [
+          orig.position[0] + offset,
+          orig.position[1],
+          orig.position[2] + offset,
+        ],
+        dadoNotches: [],
+        locked: false,
+      });
+    }
+
+    const nextParts = [...parts, ...newClones];
+    set({
+      parts: nextParts,
+      selectedIds: newIds,
+      pasteCount: nextPasteCount,
+    });
+    saveToLocalStorage({ ...get(), parts: nextParts });
+    get().addToast(`הודבקו ${newClones.length} חלקים`, 'success');
   },
 
   duplicateSelected: () => {

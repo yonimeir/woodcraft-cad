@@ -14,6 +14,9 @@ export const App: React.FC = () => {
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
   const duplicateSelected = useProjectStore((s) => s.duplicateSelected);
+  const copySelected = useProjectStore((s) => s.copySelected);
+  const cutSelected = useProjectStore((s) => s.cutSelected);
+  const pasteClipboard = useProjectStore((s) => s.pasteClipboard);
   const deleteSelected = useProjectStore((s) => s.deleteSelected);
   const createGroupFromSelected = useProjectStore(
     (s) => s.createGroupFromSelected
@@ -40,6 +43,9 @@ export const App: React.FC = () => {
       const keyLower = e.key.toLowerCase();
       const isZ = e.code === 'KeyZ' || keyLower === 'z' || e.key === 'ז';
       const isY = e.code === 'KeyY' || keyLower === 'y' || e.key === 'ט';
+      const isC = e.code === 'KeyC' || keyLower === 'c' || e.key === 'ב';
+      const isX = e.code === 'KeyX' || keyLower === 'x' || e.key === 'ס';
+      const isV = e.code === 'KeyV' || keyLower === 'v' || e.key === 'ה';
       const isD = e.code === 'KeyD' || keyLower === 'd' || e.key === 'ג';
       const isG = e.code === 'KeyG' || keyLower === 'g' || e.key === 'ע';
       const isA = e.code === 'KeyA' || keyLower === 'a' || e.key === 'ש';
@@ -52,6 +58,15 @@ export const App: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && isY) {
         e.preventDefault();
         redo();
+      } else if ((e.ctrlKey || e.metaKey) && isC) {
+        e.preventDefault();
+        copySelected();
+      } else if ((e.ctrlKey || e.metaKey) && isX) {
+        e.preventDefault();
+        cutSelected();
+      } else if ((e.ctrlKey || e.metaKey) && isV) {
+        e.preventDefault();
+        pasteClipboard();
       } else if ((e.ctrlKey || e.metaKey) && isD) {
         e.preventDefault();
         duplicateSelected();
@@ -91,6 +106,9 @@ export const App: React.FC = () => {
   }, [
     undo,
     redo,
+    copySelected,
+    cutSelected,
+    pasteClipboard,
     duplicateSelected,
     deleteSelected,
     createGroupFromSelected,
