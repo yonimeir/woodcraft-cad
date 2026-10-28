@@ -5,6 +5,7 @@ import {
   GizmoHelper,
   GizmoViewcube,
   Grid,
+  Html,
   Line,
   OrbitControls,
 } from '@react-three/drei';
@@ -265,18 +266,13 @@ export const Viewport3D: React.FC = () => {
         />
         <directionalLight position={[-1600, 1400, -1400]} intensity={0.45} />
 
-        {/* Tinkercad-Style Light-Blue Workplane Surface & Grid */}
+        {/* Tinkercad-Style Bright Light-Blue Workplane Surface & Grid */}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, -0.5, 0]}
-          receiveShadow
+          position={[0, -1, 0]}
         >
           <planeGeometry args={[3000, 3000]} />
-          <meshStandardMaterial
-            color="#f0f9ff"
-            roughness={0.95}
-            metalness={0}
-          />
+          <meshBasicMaterial color="#f0f9ff" />
         </mesh>
 
         <Grid
@@ -286,24 +282,100 @@ export const Viewport3D: React.FC = () => {
           cellThickness={0.7}
           cellColor="#bae6fd"
           sectionSize={500}
-          sectionThickness={1.25}
-          sectionColor="#38bdf8"
-          fadeDistance={4200}
-          fadeStrength={0.6}
+          sectionThickness={1.2}
+          sectionColor="#7dd3fc"
+          fadeDistance={4500}
+          fadeStrength={0.4}
         />
 
-        {/* Crisp Tinkercad Workplane Outer Border */}
+        {/* Color-Coded Workplane Edges & Center Axes:
+            X Axis = Blue (#2563eb)
+            Z Axis = Red (#dc2626)
+            Y Axis = Black (#0f172a) */}
+        {/* X-Axis Front & Back Workplane Edges (BLUE) */}
         <Line
           points={[
-            [-1500, 1, -1500],
-            [1500, 1, -1500],
-            [1500, 1, 1500],
-            [-1500, 1, 1500],
-            [-1500, 1, -1500],
+            [-1500, 1.5, 1500],
+            [1500, 1.5, 1500],
           ]}
-          color="#0284c7"
-          lineWidth={2}
+          color="#2563eb"
+          lineWidth={3}
         />
+        <Line
+          points={[
+            [-1500, 1.5, -1500],
+            [1500, 1.5, -1500],
+          ]}
+          color="#2563eb"
+          lineWidth={2.2}
+        />
+        {/* Subtle Center X-Axis Line (BLUE) */}
+        <Line
+          points={[
+            [-1500, 0.8, 0],
+            [1500, 0.8, 0],
+          ]}
+          color="#2563eb"
+          lineWidth={1.4}
+          dashed
+          dashSize={25}
+          gapSize={15}
+        />
+        <Html position={[0, 8, 1545]} center zIndexRange={[5, 0]}>
+          <div className="bg-blue-600 text-white font-mono font-extrabold text-[10px] px-1.5 py-0.2 rounded shadow-xs pointer-events-none select-none">
+            X
+          </div>
+        </Html>
+
+        {/* Z-Axis Left & Right Workplane Edges (RED) */}
+        <Line
+          points={[
+            [-1500, 1.5, -1500],
+            [-1500, 1.5, 1500],
+          ]}
+          color="#dc2626"
+          lineWidth={3}
+        />
+        <Line
+          points={[
+            [1500, 1.5, -1500],
+            [1500, 1.5, 1500],
+          ]}
+          color="#dc2626"
+          lineWidth={2.2}
+        />
+        {/* Subtle Center Z-Axis Line (RED) */}
+        <Line
+          points={[
+            [0, 0.8, -1500],
+            [0, 0.8, 1500],
+          ]}
+          color="#dc2626"
+          lineWidth={1.4}
+          dashed
+          dashSize={25}
+          gapSize={15}
+        />
+        <Html position={[-1545, 8, 0]} center zIndexRange={[5, 0]}>
+          <div className="bg-red-600 text-white font-mono font-extrabold text-[10px] px-1.5 py-0.2 rounded shadow-xs pointer-events-none select-none">
+            Z
+          </div>
+        </Html>
+
+        {/* Y-Axis Vertical Reference Post at Workplane Corner (BLACK) */}
+        <Line
+          points={[
+            [-1500, 0, -1500],
+            [-1500, 550, -1500],
+          ]}
+          color="#0f172a"
+          lineWidth={2.5}
+        />
+        <Html position={[-1500, 585, -1500]} center zIndexRange={[5, 0]}>
+          <div className="bg-slate-900 text-white font-mono font-extrabold text-[10px] px-1.5 py-0.2 rounded shadow-xs pointer-events-none select-none">
+            Y
+          </div>
+        </Html>
 
         {/* Room Environment */}
         <RoomContextMesh />

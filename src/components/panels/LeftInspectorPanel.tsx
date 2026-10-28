@@ -151,13 +151,25 @@ export const LeftInspectorPanel: React.FC = () => {
             <div className="space-y-2.5">
               {(
                 [
-                  { axis: 'x', label: 'ציר X (שמאל / מרכז / ימין)' },
-                  { axis: 'z', label: 'ציר Z (אחור / מרכז / חזית)' },
-                  { axis: 'y', label: 'ציר Y (תחתית / אמצע / עליון)' },
+                  {
+                    axis: 'x',
+                    label: 'ציר X — כחול (שמאל / מרכז / ימין)',
+                    colorClass: 'text-blue-600 font-bold',
+                  },
+                  {
+                    axis: 'z',
+                    label: 'ציר Z — אדום (אחור / מרכז / חזית)',
+                    colorClass: 'text-red-600 font-bold',
+                  },
+                  {
+                    axis: 'y',
+                    label: 'ציר Y — שחור (תחתית / אמצע / עליון)',
+                    colorClass: 'text-slate-900 font-bold',
+                  },
                 ] as const
-              ).map(({ axis, label }) => (
+              ).map(({ axis, label, colorClass }) => (
                 <div key={axis} className="space-y-1">
-                  <div className="text-[11px] font-semibold text-slate-500">
+                  <div className={`text-[11px] ${colorClass}`}>
                     {label}
                   </div>
                   <div className="grid grid-cols-4 gap-1.5">
@@ -283,16 +295,28 @@ export const LeftInspectorPanel: React.FC = () => {
               <div className="pt-2 border-t border-slate-100 space-y-2">
                 {(
                   [
-                    { idx: 0, label: 'X (גלגול)' },
-                    { idx: 1, label: 'Y (סיבוב אופקי)' },
-                    { idx: 2, label: 'Z (העמדה)' },
+                    {
+                      idx: 0,
+                      label: 'ציר X (כחול - גלגול)',
+                      colorClass: 'text-blue-600 font-bold',
+                    },
+                    {
+                      idx: 1,
+                      label: 'ציר Y (שחור - אופקי)',
+                      colorClass: 'text-slate-900 font-bold',
+                    },
+                    {
+                      idx: 2,
+                      label: 'ציר Z (אדום - העמדה)',
+                      colorClass: 'text-red-600 font-bold',
+                    },
                   ] as const
-                ).map(({ idx, label }) => (
+                ).map(({ idx, label, colorClass }) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between gap-2"
                   >
-                    <span className="text-[11px] font-medium text-slate-600">
+                    <span className={`text-[11px] ${colorClass}`}>
                       {label}
                     </span>
                     <div className="flex items-center gap-1">
