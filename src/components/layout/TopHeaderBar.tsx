@@ -37,13 +37,13 @@ import {
   IconPivotTarget,
   IconPocketHole,
   IconTemplatesGrid,
-  IconWoodCraftLogo,
 } from '../icons/WoodCraftIcons';
 
 export const TopHeaderBar: React.FC = () => {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [generatorOpen, setGeneratorOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
   const [ioMenuOpen, setIoMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -109,7 +109,7 @@ export const TopHeaderBar: React.FC = () => {
 
   // Export 3D Model as Wavefront .OBJ (compatible with SketchUp, Fusion 360, Blender, Bambu/Cura)
   const handleExportOBJ = () => {
-    let objOut = `# WoodCraft 3D CAD Export - ${projectName}\n`;
+    let objOut = `# HandyMensch (הנדימענטש) 3D CAD Export - ${projectName}\n`;
     let vertexOffset = 1;
 
     for (const part of parts) {
@@ -190,14 +190,34 @@ export const TopHeaderBar: React.FC = () => {
       <div className="shrink-0 select-none bg-white border-b border-slate-200 shadow-2xs z-30">
         {/* ROW 1: Tinkercad-Style Clean Light Header (46px) */}
         <header className="h-11.5 px-3.5 flex items-center justify-between gap-3 border-b border-slate-100">
-          {/* Right: WoodCraft Brand Icon + Project Name Pill */}
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-2 bg-amber-500 text-slate-950 px-2.5 py-1 rounded-lg shadow-2xs">
-              <IconWoodCraftLogo size={18} />
-              <span className="text-xs font-extrabold tracking-tight">
-                WoodCraft
-              </span>
-            </div>
+          {/* Right: HandyMensch ("הנדימענטש") Brand Lockup + Project Name Pill */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setLogoPreviewOpen(true)}
+              className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+              title="הנדימענטש – לחץ להגדלת הלוגו"
+            >
+              <div className="w-8.5 h-8.5 rounded-lg overflow-hidden border-2 border-amber-600 bg-white shadow-2xs shrink-0 group-hover:border-amber-500 transition">
+                <img
+                  src="./handymensch-logo.jpg"
+                  alt="הנדימענטש"
+                  className="w-full h-full object-cover scale-110"
+                />
+              </div>
+              <div
+                className="flex flex-col leading-none text-start"
+                style={{ fontFamily: "'Rubik', 'Heebo', sans-serif" }}
+              >
+                <div className="text-[17px] font-black tracking-tight flex items-baseline">
+                  <span className="text-slate-900">הנדי</span>
+                  <span className="text-amber-600">מענטש</span>
+                </div>
+                <span className="text-[9px] font-mono font-bold tracking-widest uppercase text-slate-400">
+                  3D WOODSHOP CAD
+                </span>
+              </div>
+            </button>
 
             <input
               type="text"
@@ -728,6 +748,43 @@ export const TopHeaderBar: React.FC = () => {
                   <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">F / 0</kbd>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HandyMensch Full Mascot Logo Lightbox */}
+      {logoPreviewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 backdrop-blur-sm p-4"
+          onClick={() => setLogoPreviewOpen(false)}
+        >
+          <div
+            className="surface-modal rounded-2xl max-w-sm w-full overflow-hidden p-4 space-y-3 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div
+                className="text-xl font-black tracking-tight flex items-baseline"
+                style={{ fontFamily: "'Rubik', 'Heebo', sans-serif" }}
+              >
+                <span className="text-slate-900">הנדי</span>
+                <span className="text-amber-600">מענטש</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLogoPreviewOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="rounded-xl overflow-hidden border border-slate-200 bg-white">
+              <img
+                src="./handymensch-logo.jpg"
+                alt="הנדימענטש"
+                className="w-full h-auto object-contain"
+              />
             </div>
           </div>
         </div>

@@ -253,7 +253,7 @@ export const WorkshopCutOptimizerView: React.FC = () => {
     ctx.fillStyle = '#475569';
     ctx.font = '20px "Heebo", sans-serif';
     ctx.fillText(
-      `WoodCraft 3D CAD | להב: ${optimizerSettings.kerfMm} מ"מ | יישור קצה: ${optimizerSettings.edgeTrimMm} מ"מ | חלקים: ${parts.filter((p) => p.visible).length}`,
+      `הנדימענטש – 3D Woodshop CAD | להב: ${optimizerSettings.kerfMm} מ"מ | יישור קצה: ${optimizerSettings.edgeTrimMm} מ"מ | חלקים: ${parts.filter((p) => p.visible).length}`,
       pageCanvas.width - 50,
       102
     );
