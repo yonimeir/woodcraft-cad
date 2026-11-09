@@ -109,8 +109,8 @@ export function buildPartGeometry(
       const vz = posAttr.getZ(i); // in [-W/2, +W/2]
 
       // Start end (-X)
-      if (vx < 0 && part.miterStart.enabled && Math.abs(part.miterStart.angle) > 0.5) {
-        const ang = Math.max(-70, Math.min(70, part.miterStart.angle));
+      if (vx < 0 && part.miterStart.enabled && Math.abs(part.miterStart.angle) >= 0.1) {
+        const ang = Math.max(-75, Math.min(75, part.miterStart.angle));
         const tanA = Math.tan((ang * Math.PI) / 180);
         if (part.miterStart.axis === 'z') {
           // Cut across width Z: one side stays at -halfL, the other shifts inward (+X)
@@ -126,8 +126,8 @@ export function buildPartGeometry(
       }
 
       // End cap (+X)
-      if (vx > 0 && part.miterEnd.enabled && Math.abs(part.miterEnd.angle) > 0.5) {
-        const ang = Math.max(-70, Math.min(70, part.miterEnd.angle));
+      if (vx > 0 && part.miterEnd.enabled && Math.abs(part.miterEnd.angle) >= 0.1) {
+        const ang = Math.max(-75, Math.min(75, part.miterEnd.angle));
         const tanA = Math.tan((ang * Math.PI) / 180);
         if (part.miterEnd.axis === 'z') {
           const normalizedZ = tanA >= 0 ? (vz + W / 2) / W : (W / 2 - vz) / W;
@@ -176,10 +176,20 @@ export function buildPartGeometry(
         const cutterCenter = new THREE.Vector3(...cutter.position);
         const relPos = cutterCenter.clone().sub(partCenter).applyQuaternion(partInvQuat);
 
-        // If mode === 'half' (Half-Lap), shift the cutter up by half of `part`'s thickness
-        // so it only carves the top half (or intersecting half) of `part`!
+        // If mode === 'half' (Half-Lap), shift the cutter outward along the cross-section axis
+        // (either local Y thickness or local Z width, whichever side the cutter approaches from,
+        // or deterministic +Y / -Y if co-centered) so the two beams interlock at 50% depth!
         if (dado.mode === 'half') {
-          relPos.y += T * 0.5;
+          const normY = Math.abs(relPos.y) / Math.max(1, T);
+          const normZ = Math.abs(relPos.z) / Math.max(1, W);
+          const signOrder = part.id < cutter.id ? 1 : -1;
+          if (normZ > normY + 0.15) {
+            const dirZ = Math.abs(relPos.z) > 1 ? Math.sign(relPos.z) : signOrder;
+            relPos.z += dirZ * (W * 0.5);
+          } else {
+            const dirY = Math.abs(relPos.y) > 1 ? Math.sign(relPos.y) : signOrder;
+            relPos.y += dirY * (T * 0.5);
+          }
         }
 
         const cutterQuat = getPartQuaternion(cutter.rotation);

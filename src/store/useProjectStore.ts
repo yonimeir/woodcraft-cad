@@ -14,6 +14,7 @@ import { STARTER_TEMPLATES } from '../data/starterTemplates';
 import { sanitizeAndAuditGeneratedModel } from '../utils/aiProductGenerator';
 import { renderAndValidateMultiAngle } from '../utils/visualMultiAngleValidator';
 import {
+  computeBisectingMiterJoint,
   computeSmartSnap,
   computeWorldAxisRotation,
   detectPartCollisions,
@@ -163,8 +164,9 @@ interface ProjectState {
   toggleGroupCollapse: (groupId: string) => void;
   assignPartToGroup: (partId: string, groupId: string | null) => void;
 
-  // Parametric Dado / Half-Lap & Auto-Spacer
+  // Parametric Dado / Half-Lap, Bisecting Miter & Auto-Spacer
   createParametricDado: (partAId: string, partBId: string, mode: 'half' | 'full') => void;
+  createBisectingMiterJoint: (partAId: string, partBId: string) => void;
   removeDadoNotch: (partId: string, dadoId: string) => void;
   validateAndCleanDados: () => void;
   distributeAutoSpacer: (params: {
@@ -316,7 +318,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   showLiveDimensions: false,
   snapEnabled: true,
   gridSnapStepMm: 5,
-  angleSnapDeg: 15,
+  angleSnapDeg: 1,
   activeSnapLines: [],
   cameraPresetRequest: null,
   room: initial.room,
@@ -1115,15 +1117,56 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           ],
         };
       }
+      // When mode === 'half' (Half-Lap joint), also carve the complementary 50% on partB so they interlock flush!
+      if (mode === 'half' && p.id === partBId) {
+        const filtered = p.dadoNotches.filter((d) => d.cutterPartId !== partAId);
+        return {
+          ...p,
+          dadoNotches: [
+            ...filtered,
+            {
+              id: `dado-${Date.now()}-${Math.random().toString(36).slice(2, 5)}-b`,
+              cutterPartId: partAId,
+              cutterPartName: partA.name,
+              mode: 'half' as const,
+            },
+          ],
+        };
+      }
       return p;
     });
 
     set({ parts: nextParts });
     saveToLocalStorage({ ...get(), parts: nextParts });
     get().addToast(
-      `נוצרה מגרעת ${mode === 'half' ? 'חצי-חצי (Half-Lap)' : 'מלאה (Dado)'} על "${
-        partA.name
-      }" מול "${partB.name}"`,
+      `נוצרה מגרעת ${
+        mode === 'half' ? 'חצי-חצי משולבת (Half-Lap)' : 'מלאה (Dado)'
+      } במפגש "${partA.name}" ו-"${partB.name}"`,
+      'success'
+    );
+  },
+
+  createBisectingMiterJoint: (partAId, partBId) => {
+    const { parts } = get();
+    const partA = parts.find((p) => p.id === partAId);
+    const partB = parts.find((p) => p.id === partBId);
+    if (!partA || !partB) return;
+    get().pushHistory();
+
+    const { partAUpdates, partBUpdates, halfAngleDeg } =
+      computeBisectingMiterJoint(partA, partB);
+
+    const nextParts = parts.map((p) => {
+      if (p.id === partAId) return { ...p, ...partAUpdates };
+      if (p.id === partBId) return { ...p, ...partBUpdates };
+      return p;
+    });
+
+    set({ parts: nextParts });
+    get().validateAndCleanDados();
+    saveToLocalStorage({ ...get(), parts: get().parts });
+    get().addToast(
+      `נוצר חיבור גרונג חצי-חצי מדויק (${halfAngleDeg}°) במפגש "${partA.name}" ו-"${partB.name}"`,
       'success'
     );
   },

@@ -23,7 +23,9 @@ type StretchSide = 'length-start' | 'length-end' | 'width-start' | 'width-end';
 
 type DragState =
   | {
-      kind: 'translate-y';
+      kind: 'translate-axis';
+      axis: 'x' | 'y' | 'z';
+      axisVec: THREE.Vector3;
       startWorldPoint: THREE.Vector3;
       initialPartPos: [number, number, number];
       plane: THREE.Plane;
@@ -132,7 +134,9 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [liveBadge, setLiveBadge] = useState<string | null>(null);
-  const [coneHovered, setConeHovered] = useState(false);
+  const [hoveredMoveAxis, setHoveredMoveAxis] = useState<'x' | 'y' | 'z' | null>(
+    null
+  );
   const [hoveredStretchSide, setHoveredStretchSide] =
     useState<StretchSide | null>(null);
   const [activeStretchSide, setActiveStretchSide] =
@@ -195,26 +199,45 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       );
       if (!hit) return;
 
-      if (dragState.kind === 'translate-y') {
-        const diffY = hit.y - dragState.startWorldPoint.y;
+      if (dragState.kind === 'translate-axis') {
+        const diff = hit.clone().sub(dragState.startWorldPoint);
+        const rawDelta = diff.dot(dragState.axisVec);
+        const step = ev.shiftKey ? 0.5 : 1;
+        const snappedDelta = Math.round(rawDelta / step) * step;
+
         const nextPos: [number, number, number] = [
-          dragState.initialPartPos[0],
-          dragState.initialPartPos[1] + diffY,
-          dragState.initialPartPos[2],
+          dragState.initialPartPos[0] + dragState.axisVec.x * snappedDelta,
+          dragState.initialPartPos[1] + dragState.axisVec.y * snappedDelta,
+          dragState.initialPartPos[2] + dragState.axisVec.z * snappedDelta,
         ];
-        movePartWithSnap(currentPart.id, nextPos, false);
-        const updatedBounds = getPartWorldBounds({
-          ...currentPart,
-          position: nextPos,
-        });
+
+        if (ev.shiftKey) {
+          // Ultra-fine movement bypassing magnetic snap jumps
+          useProjectStore.getState().updatePart(
+            currentPart.id,
+            {
+              position: [
+                Math.round(nextPos[0] * 10) / 10,
+                Math.max(0, Math.round(nextPos[1] * 10) / 10),
+                Math.round(nextPos[2] * 10) / 10,
+              ],
+            },
+            false
+          );
+          setActiveSnapLines([]);
+        } else {
+          movePartWithSnap(currentPart.id, nextPos, false);
+        }
+
+        const sign = snappedDelta > 0 ? '+' : '';
         setLiveBadge(
-          `Y: ${fmtVal(Math.max(0, updatedBounds.min[1]))} ${unitSuffix}`
+          `ציר ${dragState.axis.toUpperCase()}: ${sign}${fmtVal(snappedDelta)} ${unitSuffix}`
         );
       } else if (dragState.kind === 'stretch') {
         const diff = hit.clone().sub(dragState.startWorldPoint);
         const projectedDelta = diff.dot(dragState.axisVec);
         const rawNewDim = dragState.initialDim + projectedDelta;
-        const step = ev.shiftKey ? 1 : 5;
+        const step = ev.shiftKey ? 0.5 : 1;
         const snappedDim = Math.max(50, Math.round(rawNewDim / step) * step);
 
         stretchPartSide(currentPart.id, dragState.side, snappedDim, false);
@@ -228,8 +251,9 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
         let deltaDeg =
           ((curAngleRad - dragState.startAngleRad) * 180) / Math.PI;
 
-        const snapStep = ev.shiftKey ? 1 : angleSnapDeg;
-        if (snapStep > 1) {
+        // Shift = 0.1° ultra-fine, Alt = 15° snap, default = angleSnapDeg (1°)
+        const snapStep = ev.shiftKey ? 0.1 : ev.altKey ? 15 : angleSnapDeg;
+        if (snapStep > 0) {
           deltaDeg = Math.round(deltaDeg / snapStep) * snapStep;
         }
 
@@ -241,8 +265,10 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
 
         rotatePartWithPivot(currentPart.id, nextRot, false);
         const sign = deltaDeg > 0 ? '+' : '';
+        const formattedDeg =
+          snapStep < 1 ? deltaDeg.toFixed(1) : `${Math.round(deltaDeg * 10) / 10}`;
         setLiveBadge(
-          `ציר ${dragState.axis.toUpperCase()}: ${sign}${Math.round(deltaDeg)}°`
+          `ציר ${dragState.axis.toUpperCase()}: ${sign}${formattedDeg}°`
         );
       } else if (dragState.kind === 'drag-pivot') {
         const invQuat = getPartQuaternion(currentPart.rotation)
@@ -304,8 +330,9 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
 
   if (part.locked || !part.visible) return null;
 
-  // Start Y-Elevation drag from the Tinkercad top cone (Black = Y Axis)
-  const startElevateY = (
+  // Start single-axis translation along X (Blue), Y (Black), or Z (Red)
+  const startTranslateAxis = (
+    axis: 'x' | 'y' | 'z',
     clientX: number,
     clientY: number,
     stopEvt?: { stopPropagation: () => void }
@@ -314,7 +341,13 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     setOrbitEnabled(false);
     pushHistory();
 
-    const axisDir = new THREE.Vector3(0, 1, 0);
+    const axisDir =
+      axis === 'x'
+        ? new THREE.Vector3(1, 0, 0)
+        : axis === 'y'
+        ? new THREE.Vector3(0, 1, 0)
+        : new THREE.Vector3(0, 0, 1);
+
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
     const sideVec = new THREE.Vector3()
@@ -323,9 +356,11 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     const planeNormal = new THREE.Vector3()
       .crossVectors(axisDir, sideVec)
       .normalize();
-    if (planeNormal.lengthSq() < 0.01) planeNormal.set(0, 0, 1);
+    if (planeNormal.lengthSq() < 0.01) {
+      planeNormal.set(axis === 'y' ? 0 : 0, axis === 'y' ? 0 : 1, axis === 'y' ? 1 : 0);
+    }
 
-    const origin = new THREE.Vector3(...part.position);
+    const origin = new THREE.Vector3(...pivotWorldPos);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       planeNormal,
       origin
@@ -334,7 +369,9 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       intersectPlaneAtClientXY(plane, clientX, clientY) || origin.clone();
 
     setDragState({
-      kind: 'translate-y',
+      kind: 'translate-axis',
+      axis,
+      axisVec: axisDir,
       startWorldPoint: hit,
       initialPartPos: [...part.position],
       plane,
@@ -467,240 +504,354 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     setEditingDim(null);
   };
 
-  const yConeOffset = bounds.size[1] / 2 + 54;
   const heightFromFloorMm = Math.max(0, Math.round(bounds.min[1]));
-
-  // Positions for the 3 flat 3D Tinkercad Curved Double-Arrows strictly outside the bounding box
-  const halfBx = bounds.size[0] / 2;
-  const halfBy = bounds.size[1] / 2;
-  const halfBz = bounds.size[2] / 2;
 
   return (
     <group userData={{ isGizmoHandle: true }}>
       {/* =====================================================================
           STAGE 1: SINGLE-CLICK MODE ('move')
-          - Black Y-Elevation Cone above part
-          - 3 True 3D Flat Double-Headed Curved Arrows (Tinkercad Style, NO HTML bubbles!):
-            * X Axis = Blue (#2563eb) in YZ plane outside +X end
-            * Y Axis = Black (#0f172a) in XZ floor plane outside front-right corner
-            * Z Axis = Red (#dc2626) in XY plane outside +Z front
-          - Draggable Photoshop/Illustrator Pivot Reticle
+          Unified, Compact 3-Axis CAD Gizmo anchored directly at `pivotWorldPos`
+          (the beam's center / pivot point — never scattered across empty space!):
+          1. 3 Orthogonal Translation Arrows:
+             - X Axis = Blue (#2563eb) along +X
+             - Y Axis = Black (#0f172a) along +Y
+             - Z Axis = Red (#dc2626) along +Z
+          2. 3 Concentric Curved Double-Headed Rotation Arcs around the same center:
+             - X Rotation Arc (Blue #2563eb) in YZ quadrant
+             - Y Rotation Arc (Black #0f172a) in XZ horizontal quadrant
+             - Z Rotation Arc (Red #dc2626) in XY vertical quadrant
+          3. Draggable Photoshop/Illustrator Pivot Reticle right at the center
          ===================================================================== */}
       {partEditMode === 'move' && (
-        <>
-          <group position={part.position} userData={{ isGizmoHandle: true }}>
-            {/* Subtle vertical dashed line to floor when elevated (Black for Y-axis) */}
-            {(heightFromFloorMm > 2 || dragState?.kind === 'translate-y') && (
-              <Line
-                points={[
-                  [0, -halfBy, 0],
-                  [0, -part.position[1], 0],
-                ]}
-                color="#0f172a"
-                lineWidth={1.5}
-                dashed
-                dashSize={12}
-                gapSize={10}
-                depthTest={false}
-                renderOrder={998}
-              />
-            )}
+        <group position={pivotWorldPos} userData={{ isGizmoHandle: true }}>
+          {/* Subtle vertical dashed line to floor when elevated */}
+          {(heightFromFloorMm > 2 ||
+            (dragState?.kind === 'translate-axis' &&
+              dragState.axis === 'y')) && (
+            <Line
+              points={[
+                [0, 0, 0],
+                [0, -pivotWorldPos[1], 0],
+              ]}
+              color="#0f172a"
+              lineWidth={1.5}
+              dashed
+              dashSize={12}
+              gapSize={10}
+              depthTest={false}
+              renderOrder={998}
+            />
+          )}
 
-            {/* Tinkercad Top Elevation Cone (Black #0f172a for Y-Axis) */}
-            <group
+          {/* -----------------------------------------------------------------
+              A. 3 ORTHOGONAL TRANSLATION ARROWS (X Blue, Y Black, Z Red)
+             ----------------------------------------------------------------- */}
+          {/* 1. X-Axis Move Arrow (BLUE #2563eb — points along +X) */}
+          <group
+            userData={{ isGizmoHandle: true }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setHoveredMoveAxis('x');
+            }}
+            onPointerOut={() => setHoveredMoveAxis(null)}
+            onPointerDown={(e) =>
+              startTranslateAxis('x', e.clientX, e.clientY, e)
+            }
+          >
+            <Line
+              points={[
+                [18, 0, 0],
+                [86, 0, 0],
+              ]}
+              color={
+                hoveredMoveAxis === 'x' ||
+                (dragState?.kind === 'translate-axis' && dragState.axis === 'x')
+                  ? '#f59e0b'
+                  : '#2563eb'
+              }
+              lineWidth={3}
+              depthTest={false}
+              renderOrder={999}
+            />
+            <mesh
+              position={[94, 0, 0]}
+              rotation={[0, 0, -Math.PI / 2]}
+              renderOrder={999}
               userData={{ isGizmoHandle: true }}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                setConeHovered(true);
-              }}
-              onPointerOut={() => setConeHovered(false)}
-              onPointerDown={(e) => startElevateY(e.clientX, e.clientY, e)}
             >
-              <Line
-                points={[
-                  [0, halfBy + 6, 0],
-                  [0, yConeOffset - 14, 0],
-                ]}
+              <coneGeometry args={[9, 22, 18]} />
+              <meshBasicMaterial
                 color={
-                  coneHovered || dragState?.kind === 'translate-y'
+                  hoveredMoveAxis === 'x' ||
+                  (dragState?.kind === 'translate-axis' &&
+                    dragState.axis === 'x')
+                    ? '#f59e0b'
+                    : '#2563eb'
+                }
+                depthTest={false}
+              />
+            </mesh>
+            <mesh
+              position={[60, 0, 0]}
+              rotation={[0, 0, -Math.PI / 2]}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <cylinderGeometry args={[16, 16, 84, 10]} />
+              <meshBasicMaterial transparent opacity={0} depthTest={false} />
+            </mesh>
+          </group>
+
+          {/* 2. Y-Axis Move Arrow (BLACK #0f172a — points straight UP along +Y) */}
+          <group
+            userData={{ isGizmoHandle: true }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setHoveredMoveAxis('y');
+            }}
+            onPointerOut={() => setHoveredMoveAxis(null)}
+            onPointerDown={(e) =>
+              startTranslateAxis('y', e.clientX, e.clientY, e)
+            }
+          >
+            <Line
+              points={[
+                [0, 18, 0],
+                [0, 86, 0],
+              ]}
+              color={
+                hoveredMoveAxis === 'y' ||
+                (dragState?.kind === 'translate-axis' && dragState.axis === 'y')
+                  ? '#f59e0b'
+                  : '#0f172a'
+              }
+              lineWidth={3}
+              depthTest={false}
+              renderOrder={999}
+            />
+            <mesh
+              position={[0, 94, 0]}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <coneGeometry args={[9, 22, 18]} />
+              <meshBasicMaterial
+                color={
+                  hoveredMoveAxis === 'y' ||
+                  (dragState?.kind === 'translate-axis' &&
+                    dragState.axis === 'y')
                     ? '#f59e0b'
                     : '#0f172a'
                 }
-                lineWidth={2}
                 depthTest={false}
-                renderOrder={999}
               />
-              <mesh
-                position={[0, yConeOffset, 0]}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <coneGeometry args={[12, 28, 20]} />
-                <meshBasicMaterial
-                  color={
-                    coneHovered || dragState?.kind === 'translate-y'
-                      ? '#f59e0b'
-                      : '#0f172a'
-                  }
-                  depthTest={false}
-                />
-              </mesh>
-              <mesh
-                position={[0, yConeOffset - 12, 0]}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <cylinderGeometry args={[24, 24, 54, 12]} />
-                <meshBasicMaterial transparent opacity={0} depthTest={false} />
-              </mesh>
-            </group>
-
-            {/* 1. Y-AXIS CURVED DOUBLE-ARROW (BLACK #0f172a — Lies flat on horizontal XZ plane outside corner) */}
-            <group
-              position={[halfBx - 15, -halfBy + 2, halfBz - 15]}
-              rotation={[-Math.PI / 2, 0, -Math.PI / 4]}
+            </mesh>
+            <mesh
+              position={[0, 60, 0]}
+              renderOrder={999}
               userData={{ isGizmoHandle: true }}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                setHoveredArc('y');
-              }}
-              onPointerOut={() => setHoveredArc(null)}
-              onPointerDown={(e) => startRotateAxis('y', e)}
             >
-              <mesh
-                geometry={arrowGeometries.visual}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <meshBasicMaterial
-                  color={
-                    hoveredArc === 'y' ||
-                    (dragState?.kind === 'rotate-axis' &&
-                      dragState.axis === 'y')
-                      ? '#f59e0b'
-                      : '#0f172a'
-                  }
-                  side={THREE.DoubleSide}
-                  depthTest={false}
-                />
-                <Edges color="#ffffff" threshold={15} />
-              </mesh>
-              <mesh
-                geometry={arrowGeometries.hit}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <meshBasicMaterial
-                  transparent
-                  opacity={0}
-                  side={THREE.DoubleSide}
-                  depthTest={false}
-                />
-              </mesh>
-            </group>
-
-            {/* 2. X-AXIS CURVED DOUBLE-ARROW (BLUE #2563eb — Vertical YZ plane outside +X end, facing front-top) */}
-            <group
-              position={[halfBx + 16, 0, 0]}
-              rotation={[0, -Math.PI / 2, Math.PI / 4]}
-              userData={{ isGizmoHandle: true }}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                setHoveredArc('x');
-              }}
-              onPointerOut={() => setHoveredArc(null)}
-              onPointerDown={(e) => startRotateAxis('x', e)}
-            >
-              <mesh
-                geometry={arrowGeometries.visual}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <meshBasicMaterial
-                  color={
-                    hoveredArc === 'x' ||
-                    (dragState?.kind === 'rotate-axis' &&
-                      dragState.axis === 'x')
-                      ? '#f59e0b'
-                      : '#2563eb'
-                  }
-                  side={THREE.DoubleSide}
-                  depthTest={false}
-                />
-                <Edges color="#ffffff" threshold={15} />
-              </mesh>
-              <mesh
-                geometry={arrowGeometries.hit}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <meshBasicMaterial
-                  transparent
-                  opacity={0}
-                  side={THREE.DoubleSide}
-                  depthTest={false}
-                />
-              </mesh>
-            </group>
-
-            {/* 3. Z-AXIS CURVED DOUBLE-ARROW (RED #dc2626 — Vertical XY plane outside +Z front) */}
-            <group
-              position={[0, 0, halfBz + 18]}
-              rotation={[0, 0, Math.PI / 2]}
-              userData={{ isGizmoHandle: true }}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                setHoveredArc('z');
-              }}
-              onPointerOut={() => setHoveredArc(null)}
-              onPointerDown={(e) => startRotateAxis('z', e)}
-            >
-              <mesh
-                geometry={arrowGeometries.visual}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <meshBasicMaterial
-                  color={
-                    hoveredArc === 'z' ||
-                    (dragState?.kind === 'rotate-axis' &&
-                      dragState.axis === 'z')
-                      ? '#f59e0b'
-                      : '#dc2626'
-                  }
-                  side={THREE.DoubleSide}
-                  depthTest={false}
-                />
-                <Edges color="#ffffff" threshold={15} />
-              </mesh>
-              <mesh
-                geometry={arrowGeometries.hit}
-                renderOrder={999}
-                userData={{ isGizmoHandle: true }}
-              >
-                <meshBasicMaterial
-                  transparent
-                  opacity={0}
-                  side={THREE.DoubleSide}
-                  depthTest={false}
-                />
-              </mesh>
-            </group>
+              <cylinderGeometry args={[16, 16, 84, 10]} />
+              <meshBasicMaterial transparent opacity={0} depthTest={false} />
+            </mesh>
           </group>
 
-          {/* Photoshop / Illustrator Draggable Pivot Reference Point Reticle */}
-          <group position={pivotWorldPos} userData={{ isGizmoHandle: true }}>
-            <Html position={[0, 0, 0]} center zIndexRange={[30, 0]}>
-              <div
-                onPointerDown={startDragPivot}
-                className="w-5.5 h-5.5 rounded-full bg-white hover:bg-amber-50 text-slate-900 hover:text-amber-600 border-[1.5px] border-slate-800 shadow-sm flex items-center justify-center cursor-move transition select-none"
-                title="נקודת עוגן לסיבוב (גרור למיקום הרצוי על הקורה)"
-              >
-                <IconPivotTarget size={13} />
-              </div>
-            </Html>
+          {/* 3. Z-Axis Move Arrow (RED #dc2626 — points along +Z) */}
+          <group
+            userData={{ isGizmoHandle: true }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setHoveredMoveAxis('z');
+            }}
+            onPointerOut={() => setHoveredMoveAxis(null)}
+            onPointerDown={(e) =>
+              startTranslateAxis('z', e.clientX, e.clientY, e)
+            }
+          >
+            <Line
+              points={[
+                [0, 0, 18],
+                [0, 0, 86],
+              ]}
+              color={
+                hoveredMoveAxis === 'z' ||
+                (dragState?.kind === 'translate-axis' && dragState.axis === 'z')
+                  ? '#f59e0b'
+                  : '#dc2626'
+              }
+              lineWidth={3}
+              depthTest={false}
+              renderOrder={999}
+            />
+            <mesh
+              position={[0, 0, 94]}
+              rotation={[Math.PI / 2, 0, 0]}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <coneGeometry args={[9, 22, 18]} />
+              <meshBasicMaterial
+                color={
+                  hoveredMoveAxis === 'z' ||
+                  (dragState?.kind === 'translate-axis' &&
+                    dragState.axis === 'z')
+                    ? '#f59e0b'
+                    : '#dc2626'
+                }
+                depthTest={false}
+              />
+            </mesh>
+            <mesh
+              position={[0, 0, 60]}
+              rotation={[Math.PI / 2, 0, 0]}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <cylinderGeometry args={[16, 16, 84, 10]} />
+              <meshBasicMaterial transparent opacity={0} depthTest={false} />
+            </mesh>
           </group>
-        </>
+
+          {/* -----------------------------------------------------------------
+              B. 3 CONCENTRIC CURVED ROTATION ARCS AROUND THE SAME CENTER
+             ----------------------------------------------------------------- */}
+          {/* 1. Y-AXIS ROTATION ARC (BLACK #0f172a — Horizontal XZ plane between +X and +Z) */}
+          <group
+            rotation={[-Math.PI / 2, 0, -Math.PI / 4]}
+            userData={{ isGizmoHandle: true }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setHoveredArc('y');
+            }}
+            onPointerOut={() => setHoveredArc(null)}
+            onPointerDown={(e) => startRotateAxis('y', e)}
+          >
+            <mesh
+              geometry={arrowGeometries.visual}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <meshBasicMaterial
+                color={
+                  hoveredArc === 'y' ||
+                  (dragState?.kind === 'rotate-axis' && dragState.axis === 'y')
+                    ? '#f59e0b'
+                    : '#0f172a'
+                }
+                side={THREE.DoubleSide}
+                depthTest={false}
+              />
+              <Edges color="#ffffff" threshold={15} />
+            </mesh>
+            <mesh
+              geometry={arrowGeometries.hit}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <meshBasicMaterial
+                transparent
+                opacity={0}
+                side={THREE.DoubleSide}
+                depthTest={false}
+              />
+            </mesh>
+          </group>
+
+          {/* 2. X-AXIS ROTATION ARC (BLUE #2563eb — Vertical YZ plane between +Y and +Z) */}
+          <group
+            rotation={[0, -Math.PI / 2, Math.PI / 4]}
+            userData={{ isGizmoHandle: true }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setHoveredArc('x');
+            }}
+            onPointerOut={() => setHoveredArc(null)}
+            onPointerDown={(e) => startRotateAxis('x', e)}
+          >
+            <mesh
+              geometry={arrowGeometries.visual}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <meshBasicMaterial
+                color={
+                  hoveredArc === 'x' ||
+                  (dragState?.kind === 'rotate-axis' && dragState.axis === 'x')
+                    ? '#f59e0b'
+                    : '#2563eb'
+                }
+                side={THREE.DoubleSide}
+                depthTest={false}
+              />
+              <Edges color="#ffffff" threshold={15} />
+            </mesh>
+            <mesh
+              geometry={arrowGeometries.hit}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <meshBasicMaterial
+                transparent
+                opacity={0}
+                side={THREE.DoubleSide}
+                depthTest={false}
+              />
+            </mesh>
+          </group>
+
+          {/* 3. Z-AXIS ROTATION ARC (RED #dc2626 — Vertical XY plane between +X and +Y) */}
+          <group
+            rotation={[0, 0, Math.PI / 4]}
+            userData={{ isGizmoHandle: true }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setHoveredArc('z');
+            }}
+            onPointerOut={() => setHoveredArc(null)}
+            onPointerDown={(e) => startRotateAxis('z', e)}
+          >
+            <mesh
+              geometry={arrowGeometries.visual}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <meshBasicMaterial
+                color={
+                  hoveredArc === 'z' ||
+                  (dragState?.kind === 'rotate-axis' && dragState.axis === 'z')
+                    ? '#f59e0b'
+                    : '#dc2626'
+                }
+                side={THREE.DoubleSide}
+                depthTest={false}
+              />
+              <Edges color="#ffffff" threshold={15} />
+            </mesh>
+            <mesh
+              geometry={arrowGeometries.hit}
+              renderOrder={999}
+              userData={{ isGizmoHandle: true }}
+            >
+              <meshBasicMaterial
+                transparent
+                opacity={0}
+                side={THREE.DoubleSide}
+                depthTest={false}
+              />
+            </mesh>
+          </group>
+
+          {/* C. Draggable Pivot Reference Point Reticle at the exact Gizmo origin */}
+          <Html position={[0, 0, 0]} center zIndexRange={[30, 0]}>
+            <div
+              onPointerDown={startDragPivot}
+              className="w-5.5 h-5.5 rounded-full bg-white hover:bg-amber-50 text-slate-900 hover:text-amber-600 border-[1.5px] border-slate-800 shadow-sm flex items-center justify-center cursor-move transition select-none"
+              title="נקודת עוגן לסיבוב והזזה (גרור למיקום הרצוי על הקורה)"
+            >
+              <IconPivotTarget size={13} />
+            </div>
+          </Html>
+        </group>
       )}
 
       {/* =====================================================================

@@ -44,7 +44,14 @@ export const LeftInspectorPanel: React.FC = () => {
   const rotatePartByWorldAxis = useProjectStore((s) => s.rotatePartByWorldAxis);
   const alignSelectedParts = useProjectStore((s) => s.alignSelectedParts);
   const createParametricDado = useProjectStore((s) => s.createParametricDado);
+  const createBisectingMiterJoint = useProjectStore(
+    (s) => s.createBisectingMiterJoint
+  );
   const removeDadoNotch = useProjectStore((s) => s.removeDadoNotch);
+  const angleSnapDeg = useProjectStore((s) => s.angleSnapDeg);
+  const setAngleSnapDeg = useProjectStore((s) => s.setAngleSnapDeg);
+  const gridSnapStepMm = useProjectStore((s) => s.gridSnapStepMm);
+  const setGridSnapStepMm = useProjectStore((s) => s.setGridSnapStepMm);
   const distributeAutoSpacer = useProjectStore((s) => s.distributeAutoSpacer);
   const room = useProjectStore((s) => s.room);
   const updateRoom = useProjectStore((s) => s.updateRoom);
@@ -292,8 +299,30 @@ export const LeftInspectorPanel: React.FC = () => {
                 ))}
               </div>
 
-              {/* Quick 90° Axis Rotations & Exact Angles */}
+              {/* Precision Angle Step Selector & World-Axis Rotations */}
               <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[10px] font-bold text-slate-500">
+                    צעד סיבוב:
+                  </span>
+                  <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg">
+                    {([0.5, 1, 5, 15, 45, 90] as const).map((stepVal) => (
+                      <button
+                        key={stepVal}
+                        type="button"
+                        onClick={() => setAngleSnapDeg(stepVal)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition ${
+                          angleSnapDeg === stepVal
+                            ? 'bg-amber-500 text-white'
+                            : 'text-slate-600 hover:bg-white'
+                        }`}
+                      >
+                        {stepVal}°
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {(
                   [
                     {
@@ -321,9 +350,11 @@ export const LeftInspectorPanel: React.FC = () => {
                 ).map(({ idx, axis, shortcut, label, colorClass }) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between gap-2"
+                    className="flex items-center justify-between gap-1.5"
                   >
-                    <span className={`text-[11px] flex items-center gap-1 ${colorClass}`}>
+                    <span
+                      className={`text-[11px] flex items-center gap-1 ${colorClass}`}
+                    >
                       <span>{label}</span>
                       <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-200 rounded text-[9px] font-mono text-slate-600">
                         {shortcut}
@@ -333,35 +364,45 @@ export const LeftInspectorPanel: React.FC = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          rotatePartByWorldAxis(selectedPart.id, axis, -90, true)
+                          rotatePartByWorldAxis(
+                            selectedPart.id,
+                            axis,
+                            -angleSnapDeg,
+                            true
+                          )
                         }
-                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-amber-500 hover:text-white rounded font-mono font-bold text-[11px] cursor-pointer transition"
-                        title={`סובב -90° סביב ${label} (Shift+${shortcut})`}
+                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-amber-500 hover:text-white rounded font-mono font-bold text-[10px] cursor-pointer transition"
+                        title={`סובב -${angleSnapDeg}° סביב ${label}`}
                       >
-                        -90°
+                        -{angleSnapDeg}°
                       </button>
                       <button
                         type="button"
                         onClick={() =>
-                          rotatePartByWorldAxis(selectedPart.id, axis, 90, true)
+                          rotatePartByWorldAxis(
+                            selectedPart.id,
+                            axis,
+                            angleSnapDeg,
+                            true
+                          )
                         }
-                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-amber-500 hover:text-white rounded font-mono font-bold text-[11px] flex items-center gap-0.5 cursor-pointer transition"
-                        title={`סובב +90° סביב ${label} (מקש ${shortcut})`}
+                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-amber-500 hover:text-white rounded font-mono font-bold text-[10px] cursor-pointer transition"
+                        title={`סובב +${angleSnapDeg}° סביב ${label}`}
                       >
-                        <RotateCw className="w-3 h-3" />
-                        +90°
+                        +{angleSnapDeg}°
                       </button>
                       <input
                         type="number"
-                        value={Math.round(selectedPart.rotation[idx])}
+                        step={0.5}
+                        value={Math.round(selectedPart.rotation[idx] * 10) / 10}
                         onChange={(e) => {
                           const next: [number, number, number] = [
                             ...selectedPart.rotation,
                           ];
-                          next[idx] = Number(e.target.value) || 0;
+                          next[idx] = parseFloat(e.target.value) || 0;
                           rotatePartWithPivot(selectedPart.id, next, true);
                         }}
-                        className="w-12 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-center font-mono font-bold text-[11px]"
+                        className="w-14 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-center font-mono font-bold text-[11px]"
                       />
                     </div>
                   </div>
@@ -370,9 +411,41 @@ export const LeftInspectorPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TOOL 3: MITER CUTS (גרונג) */}
+          {/* TOOL 3: MITER CUTS (גרונג — כולל גרונג חצי-חצי אוטומטי במפגש ושליטה של 0.1°) */}
           {activeToolPopover === 'miter' && selectedPart && (
             <div className="space-y-3">
+              {/* Automatic Bisecting Miter Joint when intersecting another beam */}
+              {partCollisions.length > 0 && (
+                <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5">
+                  <div className="text-[11px] font-bold text-amber-900">
+                    חיבור גרונג אוטומטי במפגש קורות:
+                  </div>
+                  {partCollisions.map((col) => {
+                    const otherId =
+                      col.partAId === selectedPart.id
+                        ? col.partBId
+                        : col.partAId;
+                    const otherName =
+                      col.partAId === selectedPart.id
+                        ? col.partBName
+                        : col.partAName;
+                    return (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() =>
+                          createBisectingMiterJoint(selectedPart.id, otherId)
+                        }
+                        className="w-full py-1.5 px-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                      >
+                        <IconMiterCut size={14} />
+                        <span>גרונג חצי-חצי עם "{otherName}"</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg">
                 {(
                   [
@@ -400,15 +473,24 @@ export const LeftInspectorPanel: React.FC = () => {
 
               {(
                 [
-                  { key: 'miterStart', title: 'קצה שמאל (Start)' },
-                  { key: 'miterEnd', title: 'קצה ימין (End)' },
+                  { key: 'miterStart', title: 'קצה שמאל / תחתון (Start)' },
+                  { key: 'miterEnd', title: 'קצה ימין / עליון (End)' },
                 ] as const
               ).map(({ key, title }) => {
                 const cfg = selectedPart[key];
+                const setAngle = (val: number) => {
+                  const clamped = Math.max(
+                    -75,
+                    Math.min(75, Math.round(val * 10) / 10)
+                  );
+                  updatePart(selectedPart.id, {
+                    [key]: { ...cfg, angle: clamped },
+                  });
+                };
                 return (
                   <div
                     key={key}
-                    className="p-2 bg-slate-50 rounded-lg border border-slate-200 space-y-2"
+                    className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2"
                   >
                     <label className="flex items-center justify-between font-bold text-slate-800 cursor-pointer">
                       <span>{title}</span>
@@ -424,25 +506,100 @@ export const LeftInspectorPanel: React.FC = () => {
                       />
                     </label>
                     {cfg.enabled && (
-                      <div className="flex items-center justify-between gap-1">
-                        {([-45, -30, 30, 45] as const).map((ang) => (
+                      <div className="space-y-2 pt-1 border-t border-slate-200/70">
+                        {/* Cut Plane Axis Selector (Width Z vs Thickness Y) */}
+                        <div className="grid grid-cols-2 gap-1 bg-slate-200/70 p-0.5 rounded-lg">
                           <button
-                            key={ang}
                             type="button"
                             onClick={() =>
                               updatePart(selectedPart.id, {
-                                [key]: { ...cfg, angle: ang },
+                                [key]: { ...cfg, axis: 'z' },
                               })
                             }
-                            className={`flex-1 py-1 rounded font-mono text-[11px] font-bold border cursor-pointer ${
-                              cfg.angle === ang
-                                ? 'bg-amber-500 text-white border-amber-600'
-                                : 'bg-white text-slate-700 border-slate-200'
+                            className={`py-0.5 rounded text-[10px] font-bold cursor-pointer ${
+                              cfg.axis === 'z'
+                                ? 'bg-white text-slate-900 shadow-2xs'
+                                : 'text-slate-600'
                             }`}
                           >
-                            {ang}°
+                            על הרוחב (Z)
                           </button>
-                        ))}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updatePart(selectedPart.id, {
+                                [key]: { ...cfg, axis: 'y' },
+                              })
+                            }
+                            className={`py-0.5 rounded text-[10px] font-bold cursor-pointer ${
+                              cfg.axis === 'y'
+                                ? 'bg-white text-slate-900 shadow-2xs'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            על העובי (Y)
+                          </button>
+                        </div>
+
+                        {/* Continuous Slider + Exact 0.1° Numeric Input + Fine ±1° Buttons */}
+                        <div className="flex items-center gap-1.5 tabular-nums">
+                          <button
+                            type="button"
+                            onClick={() => setAngle(cfg.angle - 1)}
+                            className="px-1.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded font-mono font-bold text-[10px] cursor-pointer"
+                            title="הפחת מעלה אחת (-1°)"
+                          >
+                            -1°
+                          </button>
+                          <input
+                            type="range"
+                            min={-75}
+                            max={75}
+                            step={0.5}
+                            value={cfg.angle}
+                            onChange={(e) =>
+                              setAngle(parseFloat(e.target.value) || 0)
+                            }
+                            className="flex-1 accent-amber-500 cursor-pointer"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAngle(cfg.angle + 1)}
+                            className="px-1.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded font-mono font-bold text-[10px] cursor-pointer"
+                            title="הוסף מעלה אחת (+1°)"
+                          >
+                            +1°
+                          </button>
+                          <input
+                            type="number"
+                            min={-75}
+                            max={75}
+                            step={0.1}
+                            value={cfg.angle}
+                            onChange={(e) =>
+                              setAngle(parseFloat(e.target.value) || 0)
+                            }
+                            className="w-14 bg-white border border-slate-300 focus:border-amber-500 rounded px-1 py-0.5 text-center font-mono font-bold text-[11px] outline-none"
+                          />
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="grid grid-cols-6 gap-1">
+                          {([-45, -30, -15, 15, 30, 45] as const).map((ang) => (
+                            <button
+                              key={ang}
+                              type="button"
+                              onClick={() => setAngle(ang)}
+                              className={`py-0.5 rounded font-mono text-[10px] font-bold border cursor-pointer ${
+                                Math.abs(cfg.angle - ang) < 0.05
+                                  ? 'bg-amber-500 text-white border-amber-600'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {ang}°
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -451,12 +608,12 @@ export const LeftInspectorPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TOOL 4: DADO & HALF-LAP NOTCHES (מגרעות) */}
+          {/* TOOL 4: DADO, HALF-LAP & BISECTING MITER AT BEAM INTERSECTIONS (מגרעות ומפגשים) */}
           {activeToolPopover === 'dado' && selectedPart && (
             <div className="space-y-2.5">
               {partCollisions.length === 0 ? (
                 <div className="text-slate-500 text-center py-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                  הצב קורה חוצה ליצירת מגרעת
+                  הצב שתי קורות נפגשות ליצירת מגרעת או גרונג חצי-חצי
                 </div>
               ) : (
                 partCollisions.map((col) => {
@@ -469,11 +626,21 @@ export const LeftInspectorPanel: React.FC = () => {
                   return (
                     <div
                       key={col.id}
-                      className="p-2 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5"
+                      className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5"
                     >
                       <div className="font-bold text-slate-800 truncate">
                         מפגש עם: {otherName}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          createBisectingMiterJoint(selectedPart.id, otherId)
+                        }
+                        className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition"
+                      >
+                        <IconMiterCut size={14} />
+                        <span>גרונג חצי-חצי במפגש (חוצה זווית)</span>
+                      </button>
                       <div className="grid grid-cols-2 gap-1.5">
                         <button
                           type="button"
@@ -484,9 +651,9 @@ export const LeftInspectorPanel: React.FC = () => {
                               'half'
                             )
                           }
-                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-1 rounded cursor-pointer"
+                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-1 rounded-lg cursor-pointer"
                         >
-                          חצי-חצי (Half-Lap)
+                          מגרעת חצי-חצי
                         </button>
                         <button
                           type="button"
@@ -497,7 +664,7 @@ export const LeftInspectorPanel: React.FC = () => {
                               'full'
                             )
                           }
-                          className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold py-1 rounded cursor-pointer"
+                          className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold py-1 rounded-lg cursor-pointer"
                         >
                           מגרעת מלאה (Dado)
                         </button>
@@ -915,57 +1082,190 @@ export const LeftInspectorPanel: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick 1-Click 90° World-Axis Rotation Row (X Blue, Y Black, Z Red) */}
-              <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={(e) =>
-                    rotatePartByWorldAxis(
-                      selectedPart.id,
-                      'x',
-                      e.shiftKey ? -90 : 90,
-                      true
-                    )
-                  }
-                  className="h-7 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 rounded-lg font-mono font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.98]"
-                  title="סובב 90° סביב ציר X כחול (מקש X, או Shift+X להיפוך)"
-                >
-                  <RotateCw className="w-3 h-3" />
-                  <span>X 90°</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) =>
-                    rotatePartByWorldAxis(
-                      selectedPart.id,
-                      'y',
-                      e.shiftKey ? -90 : 90,
-                      true
-                    )
-                  }
-                  className="h-7 bg-slate-100 hover:bg-slate-900 text-slate-900 hover:text-white border border-slate-300 rounded-lg font-mono font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.98]"
-                  title="סובב 90° סביב ציר Y שחור אופקי (מקש Y או R, Shift להיפוך)"
-                >
-                  <RotateCw className="w-3 h-3" />
-                  <span>Y 90°</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) =>
-                    rotatePartByWorldAxis(
-                      selectedPart.id,
-                      'z',
-                      e.shiftKey ? -90 : 90,
-                      true
-                    )
-                  }
-                  className="h-7 bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 rounded-lg font-mono font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.98]"
-                  title="סובב 90° סביב ציר Z אדום (מקש Z, או Shift+Z להיפוך)"
-                >
-                  <RotateCw className="w-3 h-3" />
-                  <span>Z 90°</span>
-                </button>
+              {/* Precision World-Axis Angle Controls (X Blue, Y Black, Z Red) */}
+              <div className="pt-1.5 border-t border-slate-100 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>סיבוב מדויק (0.5° / 1° / 90°)</span>
+                  <div className="flex items-center gap-0.5">
+                    {([1, 5, 15, 90] as const).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setAngleSnapDeg(st)}
+                        className={`px-1 py-0.2 rounded font-mono font-bold cursor-pointer ${
+                          angleSnapDeg === st
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {st}°
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {(
+                  [
+                    {
+                      idx: 0,
+                      axis: 'x' as const,
+                      label: 'X כחול',
+                      badgeCls: 'text-blue-600 font-bold',
+                      btnCls:
+                        'bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border-blue-200',
+                    },
+                    {
+                      idx: 1,
+                      axis: 'y' as const,
+                      label: 'Y שחור',
+                      badgeCls: 'text-slate-900 font-bold',
+                      btnCls:
+                        'bg-slate-100 hover:bg-slate-900 text-slate-900 hover:text-white border-slate-300',
+                    },
+                    {
+                      idx: 2,
+                      axis: 'z' as const,
+                      label: 'Z אדום',
+                      badgeCls: 'text-red-600 font-bold',
+                      btnCls:
+                        'bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border-red-200',
+                    },
+                  ] as const
+                ).map(({ idx, axis, label, badgeCls, btnCls }) => (
+                  <div
+                    key={axis}
+                    className="flex items-center justify-between gap-1 tabular-nums"
+                  >
+                    <span className={`text-[11px] w-12 ${badgeCls}`}>
+                      {label}
+                    </span>
+                    <div className="flex items-center gap-1 flex-1 justify-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          rotatePartByWorldAxis(
+                            selectedPart.id,
+                            axis,
+                            -angleSnapDeg,
+                            true
+                          )
+                        }
+                        className={`px-1.5 py-0.5 border rounded font-mono font-bold text-[10px] cursor-pointer transition ${btnCls}`}
+                        title={`סובב -${angleSnapDeg}° סביב ${label}`}
+                      >
+                        -{angleSnapDeg}°
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          rotatePartByWorldAxis(
+                            selectedPart.id,
+                            axis,
+                            angleSnapDeg,
+                            true
+                          )
+                        }
+                        className={`px-1.5 py-0.5 border rounded font-mono font-bold text-[10px] cursor-pointer transition ${btnCls}`}
+                        title={`סובב +${angleSnapDeg}° סביב ${label}`}
+                      >
+                        +{angleSnapDeg}°
+                      </button>
+                      <input
+                        type="number"
+                        step={0.5}
+                        value={Math.round(selectedPart.rotation[idx] * 10) / 10}
+                        onChange={(e) => {
+                          const next: [number, number, number] = [
+                            ...selectedPart.rotation,
+                          ];
+                          next[idx] = parseFloat(e.target.value) || 0;
+                          rotatePartWithPivot(selectedPart.id, next, true);
+                        }}
+                        className="w-13 bg-slate-50 border border-slate-200 focus:border-sky-500 rounded px-1 py-0.5 font-mono font-bold text-center text-[11px] outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
+
+              {/* Fine Movement Step Selector (for Arrow Keys & Drag) */}
+              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                <span className="text-slate-400">צעד הזזה בחיצים:</span>
+                <div className="flex items-center gap-0.5 tabular-nums">
+                  {([1, 5, 10, 50] as const).map((mm) => (
+                    <button
+                      key={mm}
+                      type="button"
+                      onClick={() => setGridSnapStepMm(mm)}
+                      className={`px-1.5 py-0.5 rounded font-mono font-bold cursor-pointer ${
+                        gridSnapStepMm === mm
+                          ? 'bg-sky-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {mm}
+                    </button>
+                  ))}
+                  <span className="text-slate-400 ms-0.5">מ"מ</span>
+                </div>
+              </div>
+
+              {/* Instant Joint Actions when intersecting another beam */}
+              {partCollisions.length > 0 && (
+                <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-amber-700 block">
+                    חיבור במפגש קורות ({partCollisions.length}):
+                  </span>
+                  {partCollisions.slice(0, 2).map((col) => {
+                    const otherId =
+                      col.partAId === selectedPart.id
+                        ? col.partBId
+                        : col.partAId;
+                    const otherName =
+                      col.partAId === selectedPart.id
+                        ? col.partBName
+                        : col.partAName;
+                    return (
+                      <div key={col.id} className="space-y-1">
+                        <div className="text-[10px] text-slate-500 truncate">
+                          מול: {otherName}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              createBisectingMiterJoint(
+                                selectedPart.id,
+                                otherId
+                              )
+                            }
+                            className="py-1 px-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-md font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
+                            title="חיתוך גרונג חצי-חצי אוטומטי במפגש שתי הקורות"
+                          >
+                            <IconMiterCut size={12} />
+                            <span>גרונג חצי-חצי</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              createParametricDado(
+                                selectedPart.id,
+                                otherId,
+                                'half'
+                              )
+                            }
+                            className="py-1 px-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
+                            title="מגרעת חצי-חצי משולבת במפגש שתי הקורות"
+                          >
+                            <IconDadoJoint size={12} />
+                            <span>מגרעת חצי-חצי</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

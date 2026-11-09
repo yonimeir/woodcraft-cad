@@ -646,20 +646,24 @@ export const TopHeaderBar: React.FC = () => {
                   <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Z / ז</kbd>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-600">סיבוב הפוך (-90°) / עדין (15°)</span>
+                  <span className="text-slate-600">סיבוב הפוך (-90°) / עדין (1°)</span>
                   <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Shift / Alt + ציר</kbd>
                 </div>
 
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 pt-2">
-                  תנועה, גובה ואורך קורה
+                  תנועה, גובה ואורך קורה (Shift = 1 מ"מ)
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-700">הזזה אופקית לפי רשת (Shift = ×10)</span>
-                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">חיצים</kbd>
+                  <span className="text-slate-700">הזזה בציר Y (למעלה / למטה)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">↑ / ↓</kbd>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-700">הגבהה / הנמכה בציר Y</span>
-                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Alt + ↑/↓</kbd>
+                  <span className="text-slate-700">הזזה בציר X (ימינה / שמאלה)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">→ / ←</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">הזזה בציר Z (קדימה / אחורה)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Alt + →/←</kbd>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-700">הצמדה מיידית לרצפה (Y=0)</span>

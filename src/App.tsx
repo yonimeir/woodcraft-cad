@@ -96,19 +96,19 @@ export const App: React.FC = () => {
         e.preventDefault();
         selectAll();
       } else if (!e.ctrlKey && !e.metaKey && isX) {
-        // Rotate around World X (Blue axis)
+        // Rotate around World X (Blue axis): Alt = ±1° fine, normal = ±90° (or ±angleSnapDeg)
         e.preventDefault();
-        const deg = e.altKey ? (e.shiftKey ? -15 : 15) : e.shiftKey ? -90 : 90;
+        const deg = e.altKey ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
         rotateSelectedByWorldAxis('x', deg);
       } else if (!e.ctrlKey && !e.metaKey && (isY || isR)) {
-        // Rotate around World Y (Black axis - horizontal spin)
+        // Rotate around World Y (Black axis - horizontal spin): Alt = ±1° fine, normal = ±90°
         e.preventDefault();
-        const deg = e.altKey ? (e.shiftKey ? -15 : 15) : e.shiftKey ? -90 : 90;
+        const deg = e.altKey ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
         rotateSelectedByWorldAxis('y', deg);
       } else if (!e.ctrlKey && !e.metaKey && isZ) {
-        // Rotate around World Z (Red axis)
+        // Rotate around World Z (Red axis): Alt = ±1° fine, normal = ±90°
         e.preventDefault();
-        const deg = e.altKey ? (e.shiftKey ? -15 : 15) : e.shiftKey ? -90 : 90;
+        const deg = e.altKey ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
         rotateSelectedByWorldAxis('z', deg);
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isD) {
         e.preventDefault();
@@ -196,14 +196,23 @@ export const App: React.FC = () => {
         ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
       ) {
         e.preventDefault();
+        // Shift = 1mm fine control, normal = gridSnapStepMm (default 5mm)
         const baseStep = Math.max(1, gridSnapStepMm);
-        const step = e.shiftKey ? baseStep * 10 : baseStep;
-        if (e.key === 'ArrowLeft') moveSelectedDelta([-step, 0, 0]);
-        if (e.key === 'ArrowRight') moveSelectedDelta([step, 0, 0]);
-        if (e.key === 'ArrowUp')
-          moveSelectedDelta(e.altKey ? [0, step, 0] : [0, 0, -step]);
-        if (e.key === 'ArrowDown')
-          moveSelectedDelta(e.altKey ? [0, -step, 0] : [0, 0, step]);
+        const step = e.shiftKey ? 1 : baseStep;
+
+        if (e.key === 'ArrowUp') {
+          // Up = +Y axis
+          moveSelectedDelta([0, step, 0]);
+        } else if (e.key === 'ArrowDown') {
+          // Down = -Y axis
+          moveSelectedDelta([0, -step, 0]);
+        } else if (e.key === 'ArrowRight') {
+          // Alt + Right = +Z axis, Right = +X axis
+          moveSelectedDelta(e.altKey ? [0, 0, step] : [step, 0, 0]);
+        } else if (e.key === 'ArrowLeft') {
+          // Alt + Left = -Z axis, Left = -X axis
+          moveSelectedDelta(e.altKey ? [0, 0, -step] : [-step, 0, 0]);
+        }
       }
     };
 

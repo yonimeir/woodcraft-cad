@@ -154,6 +154,9 @@ export const Viewport3D: React.FC = () => {
   const activeNotePartId = useProjectStore((s) => s.activeNotePartId);
   const setActiveNotePartId = useProjectStore((s) => s.setActiveNotePartId);
   const createParametricDado = useProjectStore((s) => s.createParametricDado);
+  const createBisectingMiterJoint = useProjectStore(
+    (s) => s.createBisectingMiterJoint
+  );
   const rotatePartWithPivot = useProjectStore((s) => s.rotatePartWithPivot);
   const addPartFromStock = useProjectStore((s) => s.addPartFromStock);
   const gridSnapStepMm = useProjectStore((s) => s.gridSnapStepMm);
@@ -580,6 +583,17 @@ export const Viewport3D: React.FC = () => {
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
                     <span>מפגש עם הקורה "{otherName}"</span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      createBisectingMiterJoint(activeNotePart.id, otherId);
+                      setActiveNotePartId(null);
+                    }}
+                    className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    גרונג חצי-חצי במפגש (חוצה זווית אוטומטי)
+                  </button>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"

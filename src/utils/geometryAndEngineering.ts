@@ -26,7 +26,7 @@ export function resolvePartLengths(part: Part): ResolvedPartLengths {
   const { length, width, thickness } = part.dimensions;
 
   const calcDelta = (enabled: boolean, angleDeg: number, axis: 'y' | 'z') => {
-    if (!enabled || Math.abs(angleDeg) < 0.5) return 0;
+    if (!enabled || Math.abs(angleDeg) < 0.1) return 0;
     const rad = (Math.min(Math.abs(angleDeg), 75) * Math.PI) / 180;
     const crossDim = axis === 'z' ? width : thickness;
     return crossDim * Math.tan(rad);
@@ -477,8 +477,241 @@ export function computeSmartSnap(
 }
 
 /**
+ * Exact 3D Oriented Bounding Box (OBB) Separating Axis Theorem (SAT) overlap test.
+ * Prevents false-positive AABB collisions between angled/tilted beams (e.g. A-frame legs).
+ */
+function checkOBBIntersection(
+  a: Part,
+  ba: WorldBounds,
+  b: Part,
+  bb: WorldBounds,
+  shrinkMm = 3.0
+): boolean {
+  const lenA = resolvePartLengths(a).outerLength;
+  const lenB = resolvePartLengths(b).outerLength;
+
+  // Shrink slightly along cross-section and ends (more if mitered) so flush joints aren't flagged as overlaps
+  const endShrinkA =
+    (a.miterStart.enabled && Math.abs(a.miterStart.angle) > 0.5) ||
+    (a.miterEnd.enabled && Math.abs(a.miterEnd.angle) > 0.5)
+      ? Math.max(shrinkMm, Math.max(a.dimensions.width, a.dimensions.thickness) * 0.45)
+      : shrinkMm;
+  const endShrinkB =
+    (b.miterStart.enabled && Math.abs(b.miterStart.angle) > 0.5) ||
+    (b.miterEnd.enabled && Math.abs(b.miterEnd.angle) > 0.5)
+      ? Math.max(shrinkMm, Math.max(b.dimensions.width, b.dimensions.thickness) * 0.45)
+      : shrinkMm;
+
+  const extA = [
+    Math.max(2, lenA / 2 - endShrinkA),
+    Math.max(1, a.dimensions.thickness / 2 - shrinkMm),
+    Math.max(2, a.dimensions.width / 2 - shrinkMm),
+  ];
+  const extB = [
+    Math.max(2, lenB / 2 - endShrinkB),
+    Math.max(1, b.dimensions.thickness / 2 - shrinkMm),
+    Math.max(2, b.dimensions.width / 2 - shrinkMm),
+  ];
+
+  const axesA = [ba.axisX, ba.axisY, ba.axisZ];
+  const axesB = [bb.axisX, bb.axisY, bb.axisZ];
+  const centerDiff = new THREE.Vector3(
+    bb.center[0] - ba.center[0],
+    bb.center[1] - ba.center[1],
+    bb.center[2] - ba.center[2]
+  );
+
+  const testAxes: THREE.Vector3[] = [...axesA, ...axesB];
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      const cross = new THREE.Vector3().crossVectors(axesA[i], axesB[j]);
+      if (cross.lengthSq() > 1e-4) {
+        testAxes.push(cross.normalize());
+      }
+    }
+  }
+
+  for (const axis of testAxes) {
+    const rA =
+      extA[0] * Math.abs(axis.dot(axesA[0])) +
+      extA[1] * Math.abs(axis.dot(axesA[1])) +
+      extA[2] * Math.abs(axis.dot(axesA[2]));
+    const rB =
+      extB[0] * Math.abs(axis.dot(axesB[0])) +
+      extB[1] * Math.abs(axis.dot(axesB[1])) +
+      extB[2] * Math.abs(axis.dot(axesB[2]));
+    const dist = Math.abs(centerDiff.dot(axis));
+    if (dist > rA + rB) {
+      return false; // Separated on this axis
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Computes an automatic bisecting miter joint ("גרונג חצי-חצי") for two meeting beams `partA` and `partB`.
+ * Determines which ends of `partA` and `partB` meet, computes the exact bisecting plane in 3D,
+ * converts it to each beam's local miter axis ('y' or 'z') and signed angle (0.1° precision),
+ * and aligns their meeting tips so they form a clean flush corner/apex without moving their opposite ends.
+ */
+export function computeBisectingMiterJoint(
+  partA: Part,
+  partB: Part
+): {
+  partAUpdates: Partial<Part>;
+  partBUpdates: Partial<Part>;
+  halfAngleDeg: number;
+} {
+  const ba = getPartWorldBounds(partA);
+  const bb = getPartWorldBounds(partB);
+  const lenA = resolvePartLengths(partA).outerLength;
+  const lenB = resolvePartLengths(partB).outerLength;
+
+  const centerA = new THREE.Vector3(...partA.position);
+  const centerB = new THREE.Vector3(...partB.position);
+
+  const endsA = {
+    start: centerA.clone().addScaledVector(ba.axisX, -lenA / 2),
+    end: centerA.clone().addScaledVector(ba.axisX, lenA / 2),
+  };
+  const endsB = {
+    start: centerB.clone().addScaledVector(bb.axisX, -lenB / 2),
+    end: centerB.clone().addScaledVector(bb.axisX, lenB / 2),
+  };
+
+  // Find which pair of ends is closest
+  let bestEndA: 'start' | 'end' = 'end';
+  let bestEndB: 'start' | 'end' = 'end';
+  let minDist = Infinity;
+
+  for (const kA of ['start', 'end'] as const) {
+    for (const kB of ['start', 'end'] as const) {
+      const d = endsA[kA].distanceTo(endsB[kB]);
+      if (d < minDist) {
+        minDist = d;
+        bestEndA = kA;
+        bestEndB = kB;
+      }
+    }
+  }
+
+  // Outward unit vectors pointing along each beam toward the meeting corner
+  const uA = ba.axisX.clone().multiplyScalar(bestEndA === 'end' ? 1 : -1).normalize();
+  const uB = bb.axisX.clone().multiplyScalar(bestEndB === 'end' ? 1 : -1).normalize();
+
+  // Bisecting plane normal pointing outward from A's cut face (and -nCut for B's cut face)
+  let nCutA = uA.clone().sub(uB);
+  if (nCutA.lengthSq() < 1e-4) {
+    nCutA = uA.clone();
+  } else {
+    nCutA.normalize();
+  }
+  const nCutB = nCutA.clone().negate();
+
+  const resolveLocalMiter = (
+    part: Part,
+    whichEnd: 'start' | 'end',
+    outwardNormalWorld: THREE.Vector3
+  ): { axis: 'y' | 'z'; angle: number } => {
+    const qInv = getPartQuaternion(part.rotation).clone().invert();
+    const nLocal = outwardNormalWorld.clone().applyQuaternion(qInv).normalize();
+    const signX = whichEnd === 'end' ? 1 : -1;
+    const nx = Math.max(0.15, Math.abs(nLocal.x));
+    if (Math.abs(nLocal.z) >= Math.abs(nLocal.y)) {
+      const rawAng = radToDeg(Math.atan2(nLocal.z, signX * nLocal.x));
+      const clamped = Math.max(-75, Math.min(75, Math.round(rawAng * 10) / 10));
+      return { axis: 'z', angle: clamped || ( nx < 1 ? 45 : 0 ) };
+    } else {
+      const rawAng = radToDeg(Math.atan2(nLocal.y, signX * nLocal.x));
+      const clamped = Math.max(-75, Math.min(75, Math.round(rawAng * 10) / 10));
+      return { axis: 'y', angle: clamped || ( nx < 1 ? 45 : 0 ) };
+    }
+  };
+
+  const miterA = resolveLocalMiter(partA, bestEndA, nCutA);
+  const miterB = resolveLocalMiter(partB, bestEndB, nCutB);
+
+  // Align the two meeting ends to the closest point between the two beam centerlines
+  // while keeping their opposite (non-meeting) ends anchored!
+  const anchorA = endsA[bestEndA === 'end' ? 'start' : 'end'];
+  const anchorB = endsB[bestEndB === 'end' ? 'start' : 'end'];
+
+  // Closest point / intersection of rays (anchorA + tA * uA) and (anchorB + tB * uB)
+  const w0 = anchorA.clone().sub(anchorB);
+  const bDot = uA.dot(uB);
+  const d = w0.dot(uA);
+  const e = w0.dot(uB);
+  const denom = 1 - bDot * bDot;
+
+  let newLenA = lenA;
+  let newLenB = lenB;
+
+  if (Math.abs(denom) > 1e-3) {
+    const tCenterA = (bDot * e - d) / denom;
+    const tCenterB = (e - bDot * d) / denom;
+
+    const crossDimA =
+      miterA.axis === 'z' ? partA.dimensions.width : partA.dimensions.thickness;
+    const crossDimB =
+      miterB.axis === 'z' ? partB.dimensions.width : partB.dimensions.thickness;
+
+    const extraA = 0.5 * crossDimA * Math.tan(degToRad(Math.abs(miterA.angle)));
+    const extraB = 0.5 * crossDimB * Math.tan(degToRad(Math.abs(miterB.angle)));
+
+    if (tCenterA > 60 && tCenterA < 4800) {
+      newLenA = Math.round((tCenterA + extraA) * 10) / 10;
+    }
+    if (tCenterB > 60 && tCenterB < 4800) {
+      newLenB = Math.round((tCenterB + extraB) * 10) / 10;
+    }
+  }
+
+  const newCenterA = anchorA.clone().addScaledVector(uA, newLenA / 2);
+  const newCenterB = anchorB.clone().addScaledVector(uB, newLenB / 2);
+
+  const partAUpdates: Partial<Part> = {
+    miterLengthMode: 'outer',
+    dimensions: {
+      ...partA.dimensions,
+      length: newLenA,
+    },
+    position: [
+      Math.round(newCenterA.x * 10) / 10,
+      Math.round(newCenterA.y * 10) / 10,
+      Math.round(newCenterA.z * 10) / 10,
+    ],
+    ...(bestEndA === 'start'
+      ? { miterStart: { enabled: true, angle: miterA.angle, axis: miterA.axis } }
+      : { miterEnd: { enabled: true, angle: miterA.angle, axis: miterA.axis } }),
+  };
+
+  const partBUpdates: Partial<Part> = {
+    miterLengthMode: 'outer',
+    dimensions: {
+      ...partB.dimensions,
+      length: newLenB,
+    },
+    position: [
+      Math.round(newCenterB.x * 10) / 10,
+      Math.round(newCenterB.y * 10) / 10,
+      Math.round(newCenterB.z * 10) / 10,
+    ],
+    ...(bestEndB === 'start'
+      ? { miterStart: { enabled: true, angle: miterB.angle, axis: miterB.axis } }
+      : { miterEnd: { enabled: true, angle: miterB.angle, axis: miterB.axis } }),
+  };
+
+  const halfAngleDeg =
+    Math.round(((Math.abs(miterA.angle) + Math.abs(miterB.angle)) / 2) * 10) /
+    10;
+
+  return { partAUpdates, partBUpdates, halfAngleDeg };
+}
+
+/**
  * Detects 3D volumetric collisions (overlaps > 2mm in all 3 axes) between visible parts.
- * Used both for collision warnings and for parametric Half-Lap / Dado joints!
+ * Used both for collision warnings and for parametric Half-Lap / Dado & Bisecting Miter joints!
  */
 export function detectPartCollisions(parts: Part[]): CollisionPair[] {
   const visibleParts = parts.filter((p) => p.visible);
@@ -488,7 +721,7 @@ export function detectPartCollisions(parts: Part[]): CollisionPair[] {
   }
 
   const collisions: CollisionPair[] = [];
-  const epsilon = 15.0; // Ignore touching faces and slight butt-joint overlaps (< 15mm)
+  const epsilon = 8.0;
 
   for (let i = 0; i < visibleParts.length; i++) {
     for (let j = i + 1; j < visibleParts.length; j++) {
@@ -509,6 +742,9 @@ export function detectPartCollisions(parts: Part[]): CollisionPair[] {
       const dz = maxZ - minZ;
 
       if (dx > epsilon && dy > epsilon && dz > epsilon) {
+        if (!checkOBBIntersection(a, ba, b, bb, 3.0)) {
+          continue;
+        }
         const hasDadoAlready =
           a.dadoNotches.some((d) => d.cutterPartId === b.id) ||
           b.dadoNotches.some((d) => d.cutterPartId === a.id);
