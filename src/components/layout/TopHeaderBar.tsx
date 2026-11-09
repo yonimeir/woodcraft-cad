@@ -32,6 +32,7 @@ import {
   IconDadoJoint,
   IconDistributeEvenly,
   IconDropToFloor,
+  IconJigsawCut,
   IconMiterCut,
   IconPivotTarget,
   IconPocketHole,
@@ -521,6 +522,21 @@ export const TopHeaderBar: React.FC = () => {
               >
                 <IconDadoJoint size={16} />
                 <span className="hidden lg:inline">מגרעות</span>
+              </button>
+
+              {/* 6.5. Jigsaw & Custom Profile / Diagonal Cuts (ג'יגסו וחיתוך צורני) */}
+              <button
+                type="button"
+                onClick={() => togglePopover('jigsaw')}
+                disabled={!hasSelection}
+                className={iconBtnClass(
+                  activeToolPopover === 'jigsaw',
+                  !hasSelection
+                )}
+                title="מסור אנכי (ג'יגסו): חיתוך קו אלכסוני חופשי, קשתות, עיגול/קטימת פינות ומדרגות"
+              >
+                <IconJigsawCut size={16} />
+                <span className="hidden lg:inline">ג'יגסו</span>
               </button>
 
               {/* 7. Pocket Holes (חורי כיס) */}

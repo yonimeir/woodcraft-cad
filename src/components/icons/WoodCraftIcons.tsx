@@ -147,3 +147,12 @@ export const IconScrapWood: React.FC<IconProps> = ({ size = 18, ...rest }) => (
     <line x1="15" y1="13" x2="15" y2="17.5" />
   </svg>
 );
+
+/** Jigsaw & Custom Profile / Curved Cut Tool (ג'יגסו וחיתוך צורני) */
+export const IconJigsawCut: React.FC<IconProps> = ({ size = 18, ...rest }) => (
+  <svg {...baseProps(size)} {...rest}>
+    <path d="M3 7H21V17H17C16.2 13.5 14.3 12 12 12C9.7 12 7.8 13.5 7 17H3V7Z" />
+    <path d="M7 17C8.2 13 15.8 13 17 17" strokeDasharray="2 1.8" />
+    <line x1="12" y1="3" x2="12" y2="9" strokeWidth="2.1" />
+  </svg>
+);

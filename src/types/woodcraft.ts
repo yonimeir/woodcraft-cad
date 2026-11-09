@@ -83,6 +83,34 @@ export interface DadoNotch {
   mode: 'half' | 'full';
 }
 
+export type JigsawCutType =
+  | 'taper'
+  | 'arch'
+  | 'corner-round'
+  | 'chamfer'
+  | 'l-notch'
+  | 'trim-plane';
+
+export interface JigsawCut {
+  id: string;
+  type: JigsawCutType;
+  label: string;
+  /** Which face/edge or corner the jigsaw cut applies to */
+  edge?: 'bottom' | 'top' | 'front' | 'back' | 'start' | 'end' | 'all-corners';
+  /** Primary depth / height of cut in mm */
+  depthMm?: number;
+  /** Span / length of cut along the beam in mm */
+  lengthMm?: number;
+  /** Offset from center or start in mm */
+  offsetMm?: number;
+  /** Angle in degrees (for diagonal line / taper / chamfer cuts) */
+  angleDeg?: number;
+  /** Radius in mm (for corner rounding / arch) */
+  radiusMm?: number;
+  /** For 'trim-plane' (Flush Trim against an intersecting beam): ID of the reference beam */
+  referencePartId?: string;
+}
+
 export interface Part {
   id: string;
   name: string;
@@ -111,6 +139,8 @@ export interface Part {
   miterEnd: MiterCut;
   pocketHoles: PocketHoleConfig;
   dadoNotches: DadoNotch[];
+  /** Custom Jigsaw / Profile / Flush-Trim cuts applied to the beam */
+  jigsawCuts?: JigsawCut[];
   groupId: string | null;
   visible: boolean;
   locked: boolean;

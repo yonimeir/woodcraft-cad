@@ -157,6 +157,9 @@ export const Viewport3D: React.FC = () => {
   const createBisectingMiterJoint = useProjectStore(
     (s) => s.createBisectingMiterJoint
   );
+  const trimProtrudingTipAgainstPart = useProjectStore(
+    (s) => s.trimProtrudingTipAgainstPart
+  );
   const rotatePartWithPivot = useProjectStore((s) => s.rotatePartWithPivot);
   const addPartFromStock = useProjectStore((s) => s.addPartFromStock);
   const gridSnapStepMm = useProjectStore((s) => s.gridSnapStepMm);
@@ -625,6 +628,16 @@ export const Viewport3D: React.FC = () => {
                       מגרעת מלאה (Dado)
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      trimProtrudingTipAgainstPart(activeNotePart.id, otherId);
+                      setActiveNotePartId(null);
+                    }}
+                    className="w-full bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold py-1 rounded-lg text-[11px] transition cursor-pointer"
+                  >
+                    חתוך קצה מבצבץ מעבר ל-"{otherName}"
+                  </button>
                 </div>
               );
             })}

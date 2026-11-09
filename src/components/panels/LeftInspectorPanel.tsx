@@ -24,11 +24,13 @@ import {
   IconAlignStart,
   IconDadoJoint,
   IconDistributeEvenly,
+  IconDropToFloor,
+  IconJigsawCut,
   IconMiterCut,
   IconPivotTarget,
   IconPocketHole,
 } from '../icons/WoodCraftIcons';
-import { MiterLengthMode } from '../../types/woodcraft';
+import { JigsawCutType, MiterLengthMode } from '../../types/woodcraft';
 
 export const LeftInspectorPanel: React.FC = () => {
   const [cardCollapsed, setCardCollapsed] = useState(false);
@@ -51,6 +53,13 @@ export const LeftInspectorPanel: React.FC = () => {
   const createBisectingMiterJoint = useProjectStore(
     (s) => s.createBisectingMiterJoint
   );
+  const applyFloorFlushMiter = useProjectStore((s) => s.applyFloorFlushMiter);
+  const trimProtrudingTipAgainstPart = useProjectStore(
+    (s) => s.trimProtrudingTipAgainstPart
+  );
+  const addJigsawCut = useProjectStore((s) => s.addJigsawCut);
+  const updateJigsawCut = useProjectStore((s) => s.updateJigsawCut);
+  const removeJigsawCut = useProjectStore((s) => s.removeJigsawCut);
   const removeDadoNotch = useProjectStore((s) => s.removeDadoNotch);
   const angleSnapDeg = useProjectStore((s) => s.angleSnapDeg);
   const setAngleSnapDeg = useProjectStore((s) => s.setAngleSnapDeg);
@@ -147,6 +156,12 @@ export const LeftInspectorPanel: React.FC = () => {
                 <>
                   <IconDadoJoint size={16} className="text-amber-600" />
                   <span>מגרעות</span>
+                </>
+              )}
+              {activeToolPopover === 'jigsaw' && (
+                <>
+                  <IconJigsawCut size={16} className="text-amber-600" />
+                  <span>ג'יגסו וחיתוך צורני</span>
                 </>
               )}
               {activeToolPopover === 'pocket' && (
@@ -504,14 +519,30 @@ export const LeftInspectorPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TOOL 3: MITER CUTS (גרונג — כולל גרונג חצי-חצי אוטומטי במפגש ושליטה של 0.1°) */}
+          {/* TOOL 3: MITER CUTS (גרונג — כולל יישור לקו רצפה, חיתוך קצוות מבצבצים, וגרונג חצי-חצי במפגש) */}
           {activeToolPopover === 'miter' && selectedPart && (
             <div className="space-y-3">
-              {/* Automatic Bisecting Miter Joint when intersecting another beam */}
+              {/* 1-Click Floor-Flush Miter Cut ("חיתוך גרונג ליישור עם קו הרצפה Y=0") */}
+              <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
+                <div className="text-[11px] font-bold text-emerald-900">
+                  יישור גרונג לקו הרצפה (Y=0):
+                </div>
+                <button
+                  type="button"
+                  onClick={() => applyFloorFlushMiter(selectedPart.id)}
+                  className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                  title="מחשב אוטומטית את זווית הקורה מול הרצפה, חותך את הקצה התחתון בזווית המשלימה ומניח אותה ישר על Y=0"
+                >
+                  <IconDropToFloor size={14} />
+                  <span>חיתוך גרונג ליישור עם הרצפה (Y=0)</span>
+                </button>
+              </div>
+
+              {/* Automatic Bisecting Miter Joint & Trim Protruding Tips when intersecting another beam */}
               {partCollisions.length > 0 && (
                 <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5">
                   <div className="text-[11px] font-bold text-amber-900">
-                    חיבור גרונג אוטומטי במפגש קורות:
+                    חיבור גרונג וקטימת שפיצים במפגש:
                   </div>
                   {partCollisions.map((col) => {
                     const otherId =
@@ -523,17 +554,31 @@ export const LeftInspectorPanel: React.FC = () => {
                         ? col.partBName
                         : col.partAName;
                     return (
-                      <button
-                        key={col.id}
-                        type="button"
-                        onClick={() =>
-                          createBisectingMiterJoint(selectedPart.id, otherId)
-                        }
-                        className="w-full py-1.5 px-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
-                      >
-                        <IconMiterCut size={14} />
-                        <span>גרונג חצי-חצי עם "{otherName}"</span>
-                      </button>
+                      <div key={col.id} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            createBisectingMiterJoint(selectedPart.id, otherId)
+                          }
+                          className="w-full py-1.5 px-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                        >
+                          <IconMiterCut size={14} />
+                          <span>גרונג חצי-חצי עם "{otherName}"</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            trimProtrudingTipAgainstPart(
+                              selectedPart.id,
+                              otherId
+                            )
+                          }
+                          className="w-full py-1 px-2 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
+                          title="חותך כל שפיץ או חלק של הקורה שמבצבץ מעבר לקורה החוצה"
+                        >
+                          <span>חתוך חלקי קורה מבצבצים מעבר ל-"{otherName}"</span>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -762,6 +807,15 @@ export const LeftInspectorPanel: React.FC = () => {
                           מגרעת מלאה (Dado)
                         </button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          trimProtrudingTipAgainstPart(selectedPart.id, otherId)
+                        }
+                        className="w-full py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold rounded-lg text-[10px] cursor-pointer transition"
+                      >
+                        חתוך קצה מבצבץ מעבר ל-"{otherName}"
+                      </button>
                     </div>
                   );
                 })
@@ -783,6 +837,240 @@ export const LeftInspectorPanel: React.FC = () => {
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TOOL 4.5: JIGSAW & CUSTOM PROFILE / FREE-LINE CUTS (מסור אנכי ג'יגסו וחיתוך צורני) */}
+          {activeToolPopover === 'jigsaw' && selectedPart && (
+            <div className="space-y-3">
+              <div className="text-[11px] text-slate-600 leading-snug">
+                בחר צורת חיתוך עם <strong>מסור אנכי (ג'יגסו)</strong> או קו חיתוך חופשי על הקורה הנבחרת:
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    {
+                      type: 'taper' as JigsawCutType,
+                      label: 'קו חיתוך אלכסוני',
+                      sub: 'שיפוע / Taper חופשי',
+                      defaults: {
+                        edge: 'bottom' as const,
+                        angleDeg: 15,
+                        depthMm: Math.round(
+                          Math.max(
+                            selectedPart.dimensions.width,
+                            selectedPart.dimensions.thickness
+                          ) * 0.35
+                        ),
+                      },
+                    },
+                    {
+                      type: 'arch' as JigsawCutType,
+                      label: 'קשת דקורטיבית',
+                      sub: 'קשת ג\'יגסו בעומק הקורה',
+                      defaults: {
+                        edge: 'bottom' as const,
+                        lengthMm: Math.round(selectedPart.dimensions.length * 0.65),
+                        depthMm: Math.round(
+                          Math.max(
+                            selectedPart.dimensions.width,
+                            selectedPart.dimensions.thickness
+                          ) * 0.45
+                        ),
+                        offsetMm: 0,
+                      },
+                    },
+                    {
+                      type: 'chamfer' as JigsawCutType,
+                      label: 'קטימת פינות (גדר/פרגולה)',
+                      sub: 'סיומת דקורטיבית בקצוות',
+                      defaults: {
+                        edge: 'all-corners' as const,
+                        radiusMm: 30,
+                      },
+                    },
+                    {
+                      type: 'l-notch' as JigsawCutType,
+                      label: 'חיתוך מדרגה (L-Notch)',
+                      sub: 'פינוי פינה עם ג\'יגסו',
+                      defaults: {
+                        edge: 'end' as const,
+                        lengthMm: 80,
+                        depthMm: Math.round(
+                          Math.max(
+                            selectedPart.dimensions.width,
+                            selectedPart.dimensions.thickness
+                          ) * 0.5
+                        ),
+                      },
+                    },
+                  ] as const
+                ).map((preset) => (
+                  <button
+                    key={preset.type}
+                    type="button"
+                    onClick={() =>
+                      addJigsawCut(selectedPart.id, {
+                        type: preset.type,
+                        label: preset.label,
+                        ...preset.defaults,
+                      })
+                    }
+                    className="p-2 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-xl text-start transition cursor-pointer active:scale-[0.98]"
+                  >
+                    <div className="font-bold text-[11px] text-slate-900">
+                      + {preset.label}
+                    </div>
+                    <div className="text-[9px] text-slate-500">{preset.sub}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Active Jigsaw Cuts Editor */}
+              {(selectedPart.jigsawCuts || []).length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="font-bold text-slate-700 text-[11px]">
+                    חיתוכי ג'יגסו פעילים ({(selectedPart.jigsawCuts || []).length}):
+                  </div>
+                  {(selectedPart.jigsawCuts || []).map((jCut) => (
+                    <div
+                      key={jCut.id}
+                      className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-slate-800 truncate">
+                          {jCut.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeJigsawCut(selectedPart.id, jCut.id)}
+                          className="text-red-500 hover:text-red-700 p-0.5 cursor-pointer"
+                          title="מחק חיתוך"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {jCut.type !== 'trim-plane' && (
+                        <div className="grid grid-cols-2 gap-1.5 text-[10px] tabular-nums">
+                          {jCut.angleDeg !== undefined && (
+                            <div>
+                              <span className="text-slate-500 block">
+                                זווית קו חיתוך (°):
+                              </span>
+                              <input
+                                type="number"
+                                step={1}
+                                min={-70}
+                                max={70}
+                                value={jCut.angleDeg}
+                                onChange={(e) =>
+                                  updateJigsawCut(selectedPart.id, jCut.id, {
+                                    angleDeg: Number(e.target.value) || 0,
+                                  })
+                                }
+                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                              />
+                            </div>
+                          )}
+                          {jCut.depthMm !== undefined && (
+                            <div>
+                              <span className="text-slate-500 block">
+                                עומק חיתוך (מ"מ):
+                              </span>
+                              <input
+                                type="number"
+                                step={2}
+                                min={5}
+                                max={400}
+                                value={jCut.depthMm}
+                                onChange={(e) =>
+                                  updateJigsawCut(selectedPart.id, jCut.id, {
+                                    depthMm: Math.max(5, Number(e.target.value) || 10),
+                                  })
+                                }
+                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                              />
+                            </div>
+                          )}
+                          {jCut.lengthMm !== undefined && (
+                            <div>
+                              <span className="text-slate-500 block">
+                                מפתח / אורך (מ"מ):
+                              </span>
+                              <input
+                                type="number"
+                                step={10}
+                                min={20}
+                                max={selectedPart.dimensions.length}
+                                value={jCut.lengthMm}
+                                onChange={(e) =>
+                                  updateJigsawCut(selectedPart.id, jCut.id, {
+                                    lengthMm: Math.max(
+                                      20,
+                                      Number(e.target.value) || 40
+                                    ),
+                                  })
+                                }
+                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                              />
+                            </div>
+                          )}
+                          {jCut.radiusMm !== undefined && (
+                            <div>
+                              <span className="text-slate-500 block">
+                                גודל קטימה (מ"מ):
+                              </span>
+                              <input
+                                type="number"
+                                step={5}
+                                min={10}
+                                max={200}
+                                value={jCut.radiusMm}
+                                onChange={(e) =>
+                                  updateJigsawCut(selectedPart.id, jCut.id, {
+                                    radiusMm: Math.max(
+                                      10,
+                                      Number(e.target.value) || 20
+                                    ),
+                                  })
+                                }
+                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                              />
+                            </div>
+                          )}
+                          {(jCut.type === 'arch' ||
+                            jCut.type === 'taper' ||
+                            jCut.type === 'l-notch') && (
+                            <div>
+                              <span className="text-slate-500 block">
+                                דופן / קצה:
+                              </span>
+                              <select
+                                value={jCut.edge || 'bottom'}
+                                onChange={(e) =>
+                                  updateJigsawCut(selectedPart.id, jCut.id, {
+                                    edge: e.target.value as NonNullable<
+                                      typeof jCut.edge
+                                    >,
+                                  })
+                                }
+                                className="w-full bg-white border border-slate-200 rounded px-1 py-0.5 font-bold"
+                              >
+                                <option value="bottom">דופן תחתונה / אחורית</option>
+                                <option value="top">דופן עליונה / קדמית</option>
+                                <option value="start">קצה התחלה (Start)</option>
+                                <option value="end">קצה סיום (End)</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1317,62 +1605,104 @@ export const LeftInspectorPanel: React.FC = () => {
                 </div>
               </div>
 
-              {/* Instant Joint Actions when intersecting another beam */}
-              {partCollisions.length > 0 && (
-                <div className="pt-1.5 border-t border-slate-100 space-y-1">
-                  <span className="text-[10px] font-bold text-amber-700 block">
-                    חיבור במפגש קורות ({partCollisions.length}):
-                  </span>
-                  {partCollisions.slice(0, 2).map((col) => {
-                    const otherId =
-                      col.partAId === selectedPart.id
-                        ? col.partBId
-                        : col.partAId;
-                    const otherName =
-                      col.partAId === selectedPart.id
-                        ? col.partBName
-                        : col.partAName;
-                    return (
-                      <div key={col.id} className="space-y-1">
-                        <div className="text-[10px] text-slate-500 truncate">
-                          מול: {otherName}
+              {/* Instant Joint Actions & Floor-Flush Miter in Compact Card */}
+              <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                {selectedPart.rotation.some((r) => Math.abs(r % 90) > 0.5) && (
+                  <button
+                    type="button"
+                    onClick={() => applyFloorFlushMiter(selectedPart.id)}
+                    className="w-full py-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
+                    title="חיתוך גרונג אוטומטי ליישור עם קו הרצפה (Y=0)"
+                  >
+                    <IconDropToFloor size={12} />
+                    <span>יישור גרונג לקו הרצפה (Y=0)</span>
+                  </button>
+                )}
+
+                {partCollisions.length > 0 && (
+                  <>
+                    <span className="text-[10px] font-bold text-amber-700 block">
+                      חיבור במפגש קורות ({partCollisions.length}):
+                    </span>
+                    {partCollisions.slice(0, 2).map((col) => {
+                      const otherId =
+                        col.partAId === selectedPart.id
+                          ? col.partBId
+                          : col.partAId;
+                      const otherName =
+                        col.partAId === selectedPart.id
+                          ? col.partBName
+                          : col.partAName;
+                      return (
+                        <div key={col.id} className="space-y-1">
+                          <div className="text-[10px] text-slate-500 truncate">
+                            מול: {otherName}
+                          </div>
+                          <div className="grid grid-cols-2 gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                createBisectingMiterJoint(
+                                  selectedPart.id,
+                                  otherId
+                                )
+                              }
+                              className="py-1 px-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-md font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
+                              title="חיתוך גרונג חצי-חצי אוטומטי במפגש שתי הקורות"
+                            >
+                              <IconMiterCut size={12} />
+                              <span>גרונג חצי-חצי</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                createParametricDado(
+                                  selectedPart.id,
+                                  otherId,
+                                  'half'
+                                )
+                              }
+                              className="py-1 px-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
+                              title="מגרעת חצי-חצי משולבת במפגש שתי הקורות"
+                            >
+                              <IconDadoJoint size={12} />
+                              <span>מגרעת חצי-חצי</span>
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                createParametricDado(
+                                  selectedPart.id,
+                                  otherId,
+                                  'full'
+                                )
+                              }
+                              className="py-1 px-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-md font-bold text-[9px] cursor-pointer transition"
+                            >
+                              מגרעת מלאה (Dado)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                trimProtrudingTipAgainstPart(
+                                  selectedPart.id,
+                                  otherId
+                                )
+                              }
+                              className="py-1 px-1 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded-md font-bold text-[9px] cursor-pointer transition"
+                              title="חתוך חלקי קורה שמבצבצים מעבר לקורה החוצה"
+                            >
+                              חתוך קצה מבצבץ
+                            </button>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              createBisectingMiterJoint(
-                                selectedPart.id,
-                                otherId
-                              )
-                            }
-                            className="py-1 px-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-md font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
-                            title="חיתוך גרונג חצי-חצי אוטומטי במפגש שתי הקורות"
-                          >
-                            <IconMiterCut size={12} />
-                            <span>גרונג חצי-חצי</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              createParametricDado(
-                                selectedPart.id,
-                                otherId,
-                                'half'
-                              )
-                            }
-                            className="py-1 px-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
-                            title="מגרעת חצי-חצי משולבת במפגש שתי הקורות"
-                          >
-                            <IconDadoJoint size={12} />
-                            <span>מגרעת חצי-חצי</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>

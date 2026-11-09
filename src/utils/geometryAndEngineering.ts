@@ -880,6 +880,186 @@ export function computeBisectingMiterJoint(
 }
 
 /**
+ * Computes an automatic Floor-Flush Miter cut ("חיתוך גרונג ליישור עם קו הרצפה Y=0")
+ * for any tilted/angled beam (`part`).
+ * Finds whichever end (`start` or `end`) is closer to the floor (`Y=0`), calculates the exact
+ * local miter axis ('z' or 'y') and signed angle (`-75°..75°`) so the cut plane is 100% horizontal
+ * (world normal `[0, -1, 0]`), and drops the beam vertically so the newly cut flat foot sits flush on `Y = 0`!
+ */
+export function computeFloorFlushMiter(part: Part): {
+  partUpdates: Partial<Part>;
+  whichEnd: 'start' | 'end';
+  angleDeg: number;
+  axis: 'y' | 'z';
+} {
+  const b = getPartWorldBounds(part);
+  const len = resolvePartLengths(part).outerLength;
+  const center = new THREE.Vector3(...part.position);
+
+  const endStart = center.clone().addScaledVector(b.axisX, -len / 2);
+  const endEnd = center.clone().addScaledVector(b.axisX, len / 2);
+
+  // Pick whichever end is lower in world Y
+  const whichEnd: 'start' | 'end' = endStart.y <= endEnd.y ? 'start' : 'end';
+  const signX = whichEnd === 'end' ? 1 : -1;
+
+  // Outward normal of the floor-flush cut face points straight down `[0, -1, 0]` in world space
+  const floorDownWorld = new THREE.Vector3(0, -1, 0);
+  const q = getPartQuaternion(part.rotation);
+  const qInv = q.clone().invert();
+  const nLocal = floorDownWorld.clone().applyQuaternion(qInv).normalize();
+
+  let axis: 'y' | 'z' = 'z';
+  let angleDeg = 0;
+
+  if (Math.abs(nLocal.z) >= Math.abs(nLocal.y)) {
+    axis = 'z';
+    const rawAng = radToDeg(Math.atan2(nLocal.z, signX * Math.max(0.12, Math.abs(nLocal.x))));
+    angleDeg = Math.max(-75, Math.min(75, Math.round(rawAng * 10) / 10));
+  } else {
+    axis = 'y';
+    const rawAng = radToDeg(Math.atan2(nLocal.y, signX * Math.max(0.12, Math.abs(nLocal.x))));
+    angleDeg = Math.max(-75, Math.min(75, Math.round(rawAng * 10) / 10));
+  }
+
+  // Compute the exact lowest Y coordinate of the *mitered* geometry vertices so the cut foot sits flush at Y=0
+  const T = part.dimensions.thickness;
+  const W = part.dimensions.width;
+  const halfL = len / 2;
+
+  const updatedMiterStart =
+    whichEnd === 'start'
+      ? { enabled: Math.abs(angleDeg) >= 0.2, angle: angleDeg, axis }
+      : part.miterStart;
+  const updatedMiterEnd =
+    whichEnd === 'end'
+      ? { enabled: Math.abs(angleDeg) >= 0.2, angle: angleDeg, axis }
+      : part.miterEnd;
+
+  let minCutWorldY = Infinity;
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        let vx = sx * halfL;
+        const vy = sy * (T / 2);
+        const vz = sz * (W / 2);
+
+        if (sx < 0 && updatedMiterStart.enabled && Math.abs(updatedMiterStart.angle) >= 0.1) {
+          const tanA = Math.tan(degToRad(updatedMiterStart.angle));
+          if (updatedMiterStart.axis === 'z') {
+            const normZ = tanA >= 0 ? (vz + W / 2) / W : (W / 2 - vz) / W;
+            vx = Math.min(halfL - 5, -halfL + normZ * W * Math.abs(tanA));
+          } else {
+            const normY = tanA >= 0 ? (vy + T / 2) / T : (T / 2 - vy) / T;
+            vx = Math.min(halfL - 5, -halfL + normY * T * Math.abs(tanA));
+          }
+        }
+        if (sx > 0 && updatedMiterEnd.enabled && Math.abs(updatedMiterEnd.angle) >= 0.1) {
+          const tanA = Math.tan(degToRad(updatedMiterEnd.angle));
+          if (updatedMiterEnd.axis === 'z') {
+            const normZ = tanA >= 0 ? (vz + W / 2) / W : (W / 2 - vz) / W;
+            vx = Math.max(-halfL + 5, halfL - normZ * W * Math.abs(tanA));
+          } else {
+            const normY = tanA >= 0 ? (vy + T / 2) / T : (T / 2 - vy) / T;
+            vx = Math.max(-halfL + 5, halfL - normY * T * Math.abs(tanA));
+          }
+        }
+
+        const worldPt = new THREE.Vector3(vx, vy, vz)
+          .applyQuaternion(q)
+          .add(center);
+        if (worldPt.y < minCutWorldY) minCutWorldY = worldPt.y;
+      }
+    }
+  }
+
+  const nextPosY = Number.isFinite(minCutWorldY)
+    ? Math.round((part.position[1] - minCutWorldY) * 10) / 10
+    : part.position[1];
+
+  const partUpdates: Partial<Part> = {
+    position: [part.position[0], nextPosY, part.position[2]],
+    miterStart: updatedMiterStart,
+    miterEnd: updatedMiterEnd,
+  };
+
+  return { partUpdates, whichEnd, angleDeg, axis };
+}
+
+/**
+ * Checks whether two beams `a` and `b` already have an intentional Miter Joint at their meeting ends
+ * or a Flush-Trim (`trim-plane`) cut, so `detectPartCollisions` marks the joint as resolved!
+ */
+function hasResolvedMiterOrTrimJoint(
+  a: Part,
+  ba: WorldBounds,
+  b: Part,
+  bb: WorldBounds
+): boolean {
+  // 1. Check if either part has a Flush-Trim (`trim-plane`) referencing the other
+  const aTrimsB = (a.jigsawCuts || []).some(
+    (c) => c.type === 'trim-plane' && c.referencePartId === b.id
+  );
+  const bTrimsA = (b.jigsawCuts || []).some(
+    (c) => c.type === 'trim-plane' && c.referencePartId === a.id
+  );
+  if (aTrimsB || bTrimsA) return true;
+
+  // 2. Check if the two beams meet at their ends and at least one (or both) has an active Miter cut at that meeting end
+  const lenA = resolvePartLengths(a).outerLength;
+  const lenB = resolvePartLengths(b).outerLength;
+  const centerA = new THREE.Vector3(...a.position);
+  const centerB = new THREE.Vector3(...b.position);
+
+  const endsA = {
+    start: centerA.clone().addScaledVector(ba.axisX, -lenA / 2),
+    end: centerA.clone().addScaledVector(ba.axisX, lenA / 2),
+  };
+  const endsB = {
+    start: centerB.clone().addScaledVector(bb.axisX, -lenB / 2),
+    end: centerB.clone().addScaledVector(bb.axisX, lenB / 2),
+  };
+
+  let bestEndA: 'start' | 'end' = 'end';
+  let bestEndB: 'start' | 'end' = 'end';
+  let minDist = Infinity;
+
+  for (const kA of ['start', 'end'] as const) {
+    for (const kB of ['start', 'end'] as const) {
+      const d = endsA[kA].distanceTo(endsB[kB]);
+      if (d < minDist) {
+        minDist = d;
+        bestEndA = kA;
+        bestEndB = kB;
+      }
+    }
+  }
+
+  const maxCross =
+    Math.max(
+      a.dimensions.width,
+      a.dimensions.thickness,
+      b.dimensions.width,
+      b.dimensions.thickness
+    ) * 1.85;
+
+  const miterAtA =
+    bestEndA === 'start'
+      ? a.miterStart.enabled && Math.abs(a.miterStart.angle) > 0.5
+      : a.miterEnd.enabled && Math.abs(a.miterEnd.angle) > 0.5;
+  const miterAtB =
+    bestEndB === 'start'
+      ? b.miterStart.enabled && Math.abs(b.miterStart.angle) > 0.5
+      : b.miterEnd.enabled && Math.abs(b.miterEnd.angle) > 0.5;
+
+  if (minDist <= maxCross && (miterAtA || miterAtB)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Detects 3D volumetric collisions (overlaps > 2mm in all 3 axes) between visible parts.
  * Used both for collision warnings and for parametric Half-Lap / Dado & Bisecting Miter joints!
  */
@@ -915,9 +1095,10 @@ export function detectPartCollisions(parts: Part[]): CollisionPair[] {
         if (!checkOBBIntersection(a, ba, b, bb, 3.0)) {
           continue;
         }
-        const hasDadoAlready =
+        const hasDadoOrJointAlready =
           a.dadoNotches.some((d) => d.cutterPartId === b.id) ||
-          b.dadoNotches.some((d) => d.cutterPartId === a.id);
+          b.dadoNotches.some((d) => d.cutterPartId === a.id) ||
+          hasResolvedMiterOrTrimJoint(a, ba, b, bb);
 
         collisions.push({
           id: `${a.id}__${b.id}`,
@@ -930,7 +1111,7 @@ export function detectPartCollisions(parts: Part[]): CollisionPair[] {
             max: [maxX, maxY, maxZ],
             size: [dx, dy, dz],
           },
-          hasDadoAlready,
+          hasDadoAlready: hasDadoOrJointAlready,
         });
       }
     }

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as THREE from 'three';
 import {
   CutOptimizerSettings,
+  JigsawCut,
   Part,
   PartGroup,
   PivotAnchor,
@@ -17,6 +18,7 @@ import { renderAndValidateMultiAngle } from '../utils/visualMultiAngleValidator'
 import {
   buildSelectedAlignUnits,
   computeBisectingMiterJoint,
+  computeFloorFlushMiter,
   computeSmartSnap,
   computeWorldAxisRotation,
   degToRad,
@@ -65,6 +67,7 @@ export type ToolPopoverType =
   | 'miter'
   | 'pocket'
   | 'dado'
+  | 'jigsaw'
   | 'spacer'
   | 'room';
 
@@ -171,9 +174,14 @@ interface ProjectState {
   toggleGroupCollapse: (groupId: string) => void;
   assignPartToGroup: (partId: string, groupId: string | null) => void;
 
-  // Parametric Dado / Half-Lap, Bisecting Miter & Auto-Spacer
+  // Parametric Dado / Half-Lap, Bisecting Miter, Floor-Flush Miter, Flush-Trim & Jigsaw Cuts
   createParametricDado: (partAId: string, partBId: string, mode: 'half' | 'full') => void;
   createBisectingMiterJoint: (partAId: string, partBId: string) => void;
+  applyFloorFlushMiter: (partId: string) => void;
+  trimProtrudingTipAgainstPart: (partId: string, referencePartId: string) => void;
+  addJigsawCut: (partId: string, cut: Omit<JigsawCut, 'id'>) => void;
+  updateJigsawCut: (partId: string, cutId: string, patch: Partial<JigsawCut>) => void;
+  removeJigsawCut: (partId: string, cutId: string) => void;
   removeDadoNotch: (partId: string, dadoId: string) => void;
   validateAndCleanDados: () => void;
   distributeAutoSpacer: (params: {
@@ -1265,17 +1273,54 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!partA || !partB) return;
     get().pushHistory();
 
+    // Determine which beam is the continuous spanning beam vs the angled/meeting beam(s)
+    // When creating a Full Dado (`mode === 'full'`) at an A-frame / pergola joint where a ridge/crossbeam
+    // intersects multiple legs at the same joint, automatically apply the housing notch on all legs intersecting
+    // the cutter beam (or on the selected beam against all crossing beams at that joint) so all ⚠️ badges clear immediately!
+    const collisions = detectPartCollisions(parts);
+    const lenA = partA.dimensions.length;
+    const lenB = partB.dimensions.length;
+
+    // If user clicked "Dado" between A and B, check if B (or A) is a crossbeam intersecting other legs at the same joint
+    const cutterPart =
+      mode === 'full' && partA.dadoNotches.length === 0 && lenB >= lenA * 1.15
+        ? partB
+        : partB;
+    const notchedIds = new Set<string>([partAId]);
+
+    if (mode === 'full') {
+      // Also notch any sibling beams that intersect `partB` and also touch `partA` (like the pair of A-frame legs at the apex!)
+      const siblingsTouchingA = new Set(
+        collisions
+          .filter((c) => c.partAId === partAId || c.partBId === partAId)
+          .map((c) => (c.partAId === partAId ? c.partBId : c.partAId))
+      );
+      for (const col of collisions) {
+        const other =
+          col.partAId === cutterPart.id
+            ? col.partBId
+            : col.partBId === cutterPart.id
+            ? col.partAId
+            : null;
+        if (other && siblingsTouchingA.has(other)) {
+          notchedIds.add(other);
+        }
+      }
+    }
+
     const nextParts = parts.map((p) => {
-      if (p.id === partAId) {
-        const filtered = p.dadoNotches.filter((d) => d.cutterPartId !== partBId);
+      if (notchedIds.has(p.id) && p.id !== cutterPart.id) {
+        const filtered = p.dadoNotches.filter(
+          (d) => d.cutterPartId !== cutterPart.id
+        );
         return {
           ...p,
           dadoNotches: [
             ...filtered,
             {
               id: `dado-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-              cutterPartId: partBId,
-              cutterPartName: partB.name,
+              cutterPartId: cutterPart.id,
+              cutterPartName: cutterPart.name,
               mode,
             },
           ],
@@ -1304,7 +1349,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     saveToLocalStorage({ ...get(), parts: nextParts });
     get().addToast(
       `נוצרה מגרעת ${
-        mode === 'half' ? 'חצי-חצי משולבת (Half-Lap)' : 'מלאה (Dado)'
+        mode === 'half' ? 'חצי-חצי משולבת (Half-Lap)' : 'מלאה (Dado) וניקוי שפיצים מבצבצים'
       } במפגש "${partA.name}" ו-"${partB.name}"`,
       'success'
     );
@@ -1333,6 +1378,119 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       `נוצר חיבור גרונג חצי-חצי מדויק (${halfAngleDeg}°) במפגש "${partA.name}" ו-"${partB.name}"`,
       'success'
     );
+  },
+
+  applyFloorFlushMiter: (partId) => {
+    const { parts, selectedIds } = get();
+    const targetIds = selectedIds.includes(partId) ? selectedIds : [partId];
+    const targetParts = parts.filter((p) => targetIds.includes(p.id) && !p.locked);
+    if (targetParts.length === 0) return;
+    get().pushHistory();
+
+    let lastAngle = 0;
+    const updatesMap = new Map<string, Partial<Part>>();
+    for (const tp of targetParts) {
+      const { partUpdates, angleDeg } = computeFloorFlushMiter(tp);
+      updatesMap.set(tp.id, partUpdates);
+      lastAngle = angleDeg;
+    }
+
+    const nextParts = parts.map((p) =>
+      updatesMap.has(p.id) ? { ...p, ...updatesMap.get(p.id)! } : p
+    );
+
+    set({ parts: nextParts });
+    get().validateAndCleanDados();
+    saveToLocalStorage({ ...get(), parts: get().parts });
+    get().addToast(
+      `בוצע חיתוך גרונג ליישור מלא עם קו הרצפה (${lastAngle}°, Y=0)`,
+      'success'
+    );
+  },
+
+  trimProtrudingTipAgainstPart: (partId, referencePartId) => {
+    const { parts } = get();
+    const part = parts.find((p) => p.id === partId);
+    const refPart = parts.find((p) => p.id === referencePartId);
+    if (!part || !refPart) return;
+    get().pushHistory();
+
+    const nextParts = parts.map((p) => {
+      if (p.id !== partId) return p;
+      const existing = (p.jigsawCuts || []).filter(
+        (c) => !(c.type === 'trim-plane' && c.referencePartId === referencePartId)
+      );
+      return {
+        ...p,
+        jigsawCuts: [
+          ...existing,
+          {
+            id: `trim-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            type: 'trim-plane' as const,
+            label: `קטימת קצה מבצבץ לפי "${refPart.name}"`,
+            referencePartId,
+          },
+        ],
+      };
+    });
+
+    set({ parts: nextParts });
+    saveToLocalStorage({ ...get(), parts: nextParts });
+    get().addToast(
+      `נחתכו חלקי הקורה המבצבצים של "${part.name}" מעבר ל-"${refPart.name}"`,
+      'success'
+    );
+  },
+
+  addJigsawCut: (partId, cut) => {
+    const { parts } = get();
+    const part = parts.find((p) => p.id === partId);
+    if (!part || part.locked) return;
+    get().pushHistory();
+
+    const newCut: JigsawCut = {
+      ...cut,
+      id: `jigsaw-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    };
+
+    const nextParts = parts.map((p) =>
+      p.id === partId
+        ? { ...p, jigsawCuts: [...(p.jigsawCuts || []), newCut] }
+        : p
+    );
+    set({ parts: nextParts });
+    saveToLocalStorage({ ...get(), parts: nextParts });
+    get().addToast(`נוסף חיתוך ג'יגסו: ${cut.label}`, 'success');
+  },
+
+  updateJigsawCut: (partId, cutId, patch) => {
+    const { parts } = get();
+    const nextParts = parts.map((p) => {
+      if (p.id !== partId) return p;
+      return {
+        ...p,
+        jigsawCuts: (p.jigsawCuts || []).map((c) =>
+          c.id === cutId ? { ...c, ...patch } : c
+        ),
+      };
+    });
+    set({ parts: nextParts });
+    saveToLocalStorage({ ...get(), parts: nextParts });
+  },
+
+  removeJigsawCut: (partId, cutId) => {
+    get().pushHistory();
+    const nextParts = get().parts.map((p) =>
+      p.id === partId
+        ? {
+            ...p,
+            jigsawCuts: (p.jigsawCuts || []).filter((c) => c.id !== cutId),
+          }
+        : p
+    );
+    set({ parts: nextParts });
+    saveToLocalStorage({ ...get(), parts: nextParts });
+    get().addToast('חיתוך הג\'יגסו הוסר', 'info');
   },
 
   removeDadoNotch: (partId, dadoId) => {
