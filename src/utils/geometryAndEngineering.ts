@@ -1064,7 +1064,9 @@ function hasResolvedMiterOrTrimJoint(
  * Used both for collision warnings and for parametric Half-Lap / Dado & Bisecting Miter joints!
  */
 export function detectPartCollisions(parts: Part[]): CollisionPair[] {
-  const visibleParts = parts.filter((p) => p.visible);
+  const visibleParts = parts.filter(
+    (p) => p.visible && p.detachedFragmentIndex === undefined
+  );
   const boundsMap = new Map<string, WorldBounds>();
   for (const p of visibleParts) {
     boundsMap.set(p.id, getPartWorldBounds(p));

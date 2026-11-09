@@ -15,6 +15,7 @@ import { getStockById } from '../data/stockLibrary';
 import { STARTER_TEMPLATES } from '../data/starterTemplates';
 import { sanitizeAndAuditGeneratedModel } from '../utils/aiProductGenerator';
 import { renderAndValidateMultiAngle } from '../utils/visualMultiAngleValidator';
+import { countPartDisconnectedIslands } from '../utils/woodMeshBuilder';
 import {
   buildSelectedAlignUnits,
   computeBisectingMiterJoint,
@@ -1308,7 +1309,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
     }
 
-    const nextParts = parts.map((p) => {
+    const nextParts: Part[] = parts.map((p) => {
       if (notchedIds.has(p.id) && p.id !== cutterPart.id) {
         const filtered = p.dadoNotches.filter(
           (d) => d.cutterPartId !== cutterPart.id
@@ -1345,12 +1346,51 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       return p;
     });
 
-    set({ parts: nextParts });
-    saveToLocalStorage({ ...get(), parts: nextParts });
+    // Topological Connectivity Check:
+    // If the Dado cut physically severed a beam into 2+ disconnected pieces (no wood bridge connecting the main beam
+    // and the small remainder tip), automatically split the severed remainder into its own independent selectable Part
+    // so the user can click it and press Delete! If a wood bridge remains, it stays connected as 1 part.
+    const spawnedOffcuts: Part[] = [];
+    const finalParts = nextParts.map((p) => {
+      if (!notchedIds.has(p.id) || p.detachedFragmentIndex !== undefined) return p;
+      const islandCount = countPartDisconnectedIslands(p, nextParts);
+      if (islandCount <= 1) return p;
+
+      const existingExcluded = new Set(p.excludedFragmentIndices || []);
+      for (let fragIdx = 1; fragIdx < islandCount; fragIdx++) {
+        if (existingExcluded.has(fragIdx)) continue;
+        existingExcluded.add(fragIdx);
+        spawnedOffcuts.push({
+          ...JSON.parse(JSON.stringify(p)),
+          id: `offcut-${Date.now().toString(36)}-${fragIdx}-${Math.random()
+            .toString(36)
+            .slice(2, 5)}`,
+          name: `${p.name} (שארית מנותקת)`,
+          detachedFragmentIndex: fragIdx,
+          excludedFragmentIndices: undefined,
+          groupId: null,
+          locked: false,
+        });
+      }
+
+      return {
+        ...p,
+        excludedFragmentIndices: Array.from(existingExcluded),
+      };
+    });
+
+    const allResultParts = [...finalParts, ...spawnedOffcuts];
+    set({
+      parts: allResultParts,
+      ...(spawnedOffcuts.length > 0
+        ? { selectedIds: spawnedOffcuts.map((o) => o.id) }
+        : {}),
+    });
+    saveToLocalStorage({ ...get(), parts: allResultParts });
     get().addToast(
-      `נוצרה מגרעת ${
-        mode === 'half' ? 'חצי-חצי משולבת (Half-Lap)' : 'מלאה (Dado) וניקוי שפיצים מבצבצים'
-      } במפגש "${partA.name}" ו-"${partB.name}"`,
+      spawnedOffcuts.length > 0
+        ? `נוצרה מגרעת — שארית מנותקת הופרדה לחלק עצמאי (לחץ Delete למחיקה)`
+        : `נוצרה מגרעת ${mode === 'half' ? 'חצי-חצי' : 'מלאה (Dado)'}`,
       'success'
     );
   },
@@ -1427,8 +1467,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           {
             id: `trim-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
             type: 'trim-plane' as const,
-            label: `קטימת קצה מבצבץ לפי "${refPart.name}"`,
+            label: `קטימת קצה (${refPart.name})`,
             referencePartId,
+            offsetMm: 0,
+            angleDeg: 0,
+            edge: 'top' as const,
           },
         ],
       };
@@ -1436,10 +1479,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
     set({ parts: nextParts });
     saveToLocalStorage({ ...get(), parts: nextParts });
-    get().addToast(
-      `נחתכו חלקי הקורה המבצבצים של "${part.name}" מעבר ל-"${refPart.name}"`,
-      'success'
-    );
+    get().addToast(`נחתך קצה מבצבץ לפי "${refPart.name}"`, 'success');
   },
 
   addJigsawCut: (partId, cut) => {

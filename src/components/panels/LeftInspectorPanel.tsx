@@ -189,21 +189,18 @@ export const LeftInspectorPanel: React.FC = () => {
 
           {/* TOOL 1: ILLUSTRATOR-STYLE ALIGNMENT & DISTRIBUTION (WITH KEY OBJECT / "קורת אם" & GROUPS AS 1 UNIT) */}
           {activeToolPopover === 'align' && (
-            <div className="space-y-2.5">
-              {/* Illustrator "Align to Key Object" ("קורת אם / יחידת אם") selector */}
-              {alignUnits.length >= 2 ? (
+            <div className="space-y-2">
+              {alignUnits.length >= 2 && (
                 <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-slate-700">
-                      קורת אם (עוגן יישור):
-                    </span>
+                    <span className="font-bold text-slate-700">קורת אם:</span>
                     {alignKeyUnitId && (
                       <button
                         type="button"
                         onClick={() => setAlignKeyUnitId(null)}
                         className="text-[10px] font-bold text-amber-600 hover:underline cursor-pointer"
                       >
-                        לפי כל הבחירה
+                        לפי הבחירה
                       </button>
                     )}
                   </div>
@@ -214,22 +211,13 @@ export const LeftInspectorPanel: React.FC = () => {
                     }
                     className="w-full bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 outline-none cursor-pointer"
                   >
-                    <option value="">לפי תיבת הבחירה כולה ({alignUnits.length} יחידות)</option>
+                    <option value="">תיבת הבחירה ({alignUnits.length})</option>
                     {alignUnits.map((u) => (
                       <option key={u.unitId} value={u.unitId}>
-                        📌 קורת אם: {u.label}
+                        קורת אם: {u.label}
                       </option>
                     ))}
                   </select>
-                  <div className="text-[10px] text-slate-500 leading-tight">
-                    {alignKeyUnitId
-                      ? 'קורת האם תישאר במקומה והשאר יתיישרו אליה (ניתן גם ללחוץ על קורה נבחרת ב-3D)'
-                      : 'טיפ: בחר קורת אם מהרשימה (או לחץ עליה ב-3D) כדי שתישאר קבועה במקומה'}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-500">
-                  החזק <kbd className="px-1 bg-white border rounded font-mono">Shift</kbd> ובחר 2 קורות/קבוצות או יותר ליישור לפי קורת אם
                 </div>
               )}
 
@@ -519,31 +507,23 @@ export const LeftInspectorPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TOOL 3: MITER CUTS (גרונג — כולל יישור לקו רצפה, חיתוך קצוות מבצבצים, וגרונג חצי-חצי במפגש) */}
+          {/* TOOL 3: MITER CUTS (גרונג — יישור רצפה, חיתוך קצוות חופשי/מגנטי, וגרונג חצי-חצי) */}
           {activeToolPopover === 'miter' && selectedPart && (
-            <div className="space-y-3">
-              {/* 1-Click Floor-Flush Miter Cut ("חיתוך גרונג ליישור עם קו הרצפה Y=0") */}
-              <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
-                <div className="text-[11px] font-bold text-emerald-900">
-                  יישור גרונג לקו הרצפה (Y=0):
-                </div>
-                <button
-                  type="button"
-                  onClick={() => applyFloorFlushMiter(selectedPart.id)}
-                  className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
-                  title="מחשב אוטומטית את זווית הקורה מול הרצפה, חותך את הקצה התחתון בזווית המשלימה ומניח אותה ישר על Y=0"
-                >
-                  <IconDropToFloor size={14} />
-                  <span>חיתוך גרונג ליישור עם הרצפה (Y=0)</span>
-                </button>
-              </div>
+            <div className="space-y-2.5">
+              {/* 1-Click Floor-Flush Miter Cut */}
+              <button
+                type="button"
+                onClick={() => applyFloorFlushMiter(selectedPart.id)}
+                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                title="חיתוך גרונג ליישור מלא עם הרצפה (Y=0)"
+              >
+                <IconDropToFloor size={14} />
+                <span>יישור גרונג לקו הרצפה (Y=0)</span>
+              </button>
 
-              {/* Automatic Bisecting Miter Joint & Trim Protruding Tips when intersecting another beam */}
+              {/* Automatic Bisecting Miter Joint & Trim Protruding Tips */}
               {partCollisions.length > 0 && (
                 <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5">
-                  <div className="text-[11px] font-bold text-amber-900">
-                    חיבור גרונג וקטימת שפיצים במפגש:
-                  </div>
                   {partCollisions.map((col) => {
                     const otherId =
                       col.partAId === selectedPart.id
@@ -563,7 +543,7 @@ export const LeftInspectorPanel: React.FC = () => {
                           className="w-full py-1.5 px-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
                         >
                           <IconMiterCut size={14} />
-                          <span>גרונג חצי-חצי עם "{otherName}"</span>
+                          <span>גרונג חצי-חצי ({otherName})</span>
                         </button>
                         <button
                           type="button"
@@ -574,15 +554,107 @@ export const LeftInspectorPanel: React.FC = () => {
                             )
                           }
                           className="w-full py-1 px-2 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition"
-                          title="חותך כל שפיץ או חלק של הקורה שמבצבץ מעבר לקורה החוצה"
                         >
-                          <span>חתוך חלקי קורה מבצבצים מעבר ל-"{otherName}"</span>
+                          <span>מגנט חיתוך קצה לגבול "{otherName}"</span>
                         </button>
                       </div>
                     );
                   })}
                 </div>
               )}
+
+              {/* Free / Magnetic Trim-Plane Editor directly inside Miter tool if active */}
+              {(selectedPart.jigsawCuts || [])
+                .filter((c) => c.type === 'trim-plane')
+                .map((tCut) => (
+                  <div
+                    key={tCut.id}
+                    className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-[10px]"
+                  >
+                    <div className="flex items-center justify-between font-bold text-slate-800">
+                      <span className="truncate">{tCut.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeJigsawCut(selectedPart.id, tCut.id)}
+                        className="text-red-500 hover:text-red-700 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={tCut.referencePartId || ''}
+                        onChange={(e) =>
+                          updateJigsawCut(selectedPart.id, tCut.id, {
+                            referencePartId: e.target.value || undefined,
+                            offsetMm: e.target.value ? 0 : tCut.offsetMm,
+                            angleDeg: e.target.value ? 0 : tCut.angleDeg,
+                          })
+                        }
+                        className="flex-1 bg-white border border-slate-200 rounded px-1.5 py-0.5 font-bold"
+                      >
+                        <option value="">חיתוך חופשי (ללא הצמדה)</option>
+                        {parts
+                          .filter(
+                            (p) =>
+                              p.id !== selectedPart.id &&
+                              p.visible &&
+                              p.detachedFragmentIndex === undefined
+                          )
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              מגנט לגבול: {p.name}
+                            </option>
+                          ))}
+                      </select>
+                      {tCut.referencePartId && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateJigsawCut(selectedPart.id, tCut.id, {
+                              offsetMm: 0,
+                              angleDeg: 0,
+                            })
+                          }
+                          className="px-1.5 py-0.5 bg-amber-500 text-white rounded font-bold cursor-pointer"
+                          title="אפס היסט וזווית בדיוק לגבול הקורה"
+                        >
+                          0
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 tabular-nums">
+                      <div>
+                        <span className="text-slate-500 block">היסט (מ"מ):</span>
+                        <input
+                          type="number"
+                          step={1}
+                          value={tCut.offsetMm || 0}
+                          onChange={(e) =>
+                            updateJigsawCut(selectedPart.id, tCut.id, {
+                              offsetMm: Number(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">זווית (°):</span>
+                        <input
+                          type="number"
+                          step={0.5}
+                          value={tCut.angleDeg || 0}
+                          onChange={(e) =>
+                            updateJigsawCut(selectedPart.id, tCut.id, {
+                              angleDeg: Number(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
 
               <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg">
                 {(
@@ -844,20 +916,31 @@ export const LeftInspectorPanel: React.FC = () => {
             </div>
           )}
 
-          {/* TOOL 4.5: JIGSAW & CUSTOM PROFILE / FREE-LINE CUTS (מסור אנכי ג'יגסו וחיתוך צורני) */}
+          {/* TOOL 4.5: JIGSAW & CUSTOM PROFILE / FREE-LINE CUTS (ג'יגסו וחיתוך קצוות) */}
           {activeToolPopover === 'jigsaw' && selectedPart && (
-            <div className="space-y-3">
-              <div className="text-[11px] text-slate-600 leading-snug">
-                בחר צורת חיתוך עם <strong>מסור אנכי (ג'יגסו)</strong> או קו חיתוך חופשי על הקורה הנבחרת:
-              </div>
-
+            <div className="space-y-2.5">
               <div className="grid grid-cols-2 gap-1.5">
                 {(
                   [
                     {
+                      type: 'trim-plane' as JigsawCutType,
+                      label: 'חיתוך קצה מבצבץ',
+                      defaults: {
+                        edge: 'top' as const,
+                        referencePartId:
+                          partCollisions.length > 0
+                            ? partCollisions[0].partAId === selectedPart.id
+                              ? partCollisions[0].partBId
+                              : partCollisions[0].partAId
+                            : undefined,
+                        depthMm: 60,
+                        offsetMm: 0,
+                        angleDeg: 0,
+                      },
+                    },
+                    {
                       type: 'taper' as JigsawCutType,
                       label: 'קו חיתוך אלכסוני',
-                      sub: 'שיפוע / Taper חופשי',
                       defaults: {
                         edge: 'bottom' as const,
                         angleDeg: 15,
@@ -871,11 +954,12 @@ export const LeftInspectorPanel: React.FC = () => {
                     },
                     {
                       type: 'arch' as JigsawCutType,
-                      label: 'קשת דקורטיבית',
-                      sub: 'קשת ג\'יגסו בעומק הקורה',
+                      label: 'קשת (Arch)',
                       defaults: {
                         edge: 'bottom' as const,
-                        lengthMm: Math.round(selectedPart.dimensions.length * 0.65),
+                        lengthMm: Math.round(
+                          selectedPart.dimensions.length * 0.65
+                        ),
                         depthMm: Math.round(
                           Math.max(
                             selectedPart.dimensions.width,
@@ -887,8 +971,7 @@ export const LeftInspectorPanel: React.FC = () => {
                     },
                     {
                       type: 'chamfer' as JigsawCutType,
-                      label: 'קטימת פינות (גדר/פרגולה)',
-                      sub: 'סיומת דקורטיבית בקצוות',
+                      label: 'קטימת פינות',
                       defaults: {
                         edge: 'all-corners' as const,
                         radiusMm: 30,
@@ -896,8 +979,7 @@ export const LeftInspectorPanel: React.FC = () => {
                     },
                     {
                       type: 'l-notch' as JigsawCutType,
-                      label: 'חיתוך מדרגה (L-Notch)',
-                      sub: 'פינוי פינה עם ג\'יגסו',
+                      label: 'מדרגה (L-Notch)',
                       defaults: {
                         edge: 'end' as const,
                         lengthMm: 80,
@@ -921,12 +1003,9 @@ export const LeftInspectorPanel: React.FC = () => {
                         ...preset.defaults,
                       })
                     }
-                    className="p-2 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-xl text-start transition cursor-pointer active:scale-[0.98]"
+                    className="py-1.5 px-2 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg font-bold text-[11px] text-slate-900 text-start transition cursor-pointer active:scale-[0.98]"
                   >
-                    <div className="font-bold text-[11px] text-slate-900">
-                      + {preset.label}
-                    </div>
-                    <div className="text-[9px] text-slate-500">{preset.sub}</div>
+                    + {preset.label}
                   </button>
                 ))}
               </div>
@@ -934,13 +1013,10 @@ export const LeftInspectorPanel: React.FC = () => {
               {/* Active Jigsaw Cuts Editor */}
               {(selectedPart.jigsawCuts || []).length > 0 && (
                 <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="font-bold text-slate-700 text-[11px]">
-                    חיתוכי ג'יגסו פעילים ({(selectedPart.jigsawCuts || []).length}):
-                  </div>
                   {(selectedPart.jigsawCuts || []).map((jCut) => (
                     <div
                       key={jCut.id}
-                      className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-2"
+                      className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-[11px] text-slate-800 truncate">
@@ -956,64 +1032,109 @@ export const LeftInspectorPanel: React.FC = () => {
                         </button>
                       </div>
 
-                      {jCut.type !== 'trim-plane' && (
-                        <div className="grid grid-cols-2 gap-1.5 text-[10px] tabular-nums">
-                          {jCut.angleDeg !== undefined && (
-                            <div>
-                              <span className="text-slate-500 block">
-                                זווית קו חיתוך (°):
-                              </span>
-                              <input
-                                type="number"
-                                step={1}
-                                min={-70}
-                                max={70}
-                                value={jCut.angleDeg}
-                                onChange={(e) =>
+                      {jCut.type === 'trim-plane' && (
+                        <div className="space-y-1.5 text-[10px]">
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={jCut.referencePartId || ''}
+                              onChange={(e) =>
+                                updateJigsawCut(selectedPart.id, jCut.id, {
+                                  referencePartId: e.target.value || undefined,
+                                  offsetMm: e.target.value ? 0 : jCut.offsetMm,
+                                  angleDeg: e.target.value ? 0 : jCut.angleDeg,
+                                })
+                              }
+                              className="flex-1 bg-white border border-slate-200 rounded px-1.5 py-0.5 font-bold"
+                            >
+                              <option value="">חיתוך חופשי</option>
+                              {parts
+                                .filter(
+                                  (p) =>
+                                    p.id !== selectedPart.id &&
+                                    p.visible &&
+                                    p.detachedFragmentIndex === undefined
+                                )
+                                .map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    מגנט לגבול: {p.name}
+                                  </option>
+                                ))}
+                            </select>
+                            {jCut.referencePartId && (
+                              <button
+                                type="button"
+                                onClick={() =>
                                   updateJigsawCut(selectedPart.id, jCut.id, {
-                                    angleDeg: Number(e.target.value) || 0,
+                                    offsetMm: 0,
+                                    angleDeg: 0,
                                   })
                                 }
-                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
-                              />
-                            </div>
-                          )}
-                          {jCut.depthMm !== undefined && (
+                                className="px-1.5 py-0.5 bg-amber-500 text-white rounded font-bold cursor-pointer"
+                                title="מגנט ישר לגבול הקורה"
+                              >
+                                מגנט
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-1.5 text-[10px] tabular-nums">
+                        {jCut.offsetMm !== undefined && (
+                          <div>
+                            <span className="text-slate-500 block">
+                              היסט (מ"מ):
+                            </span>
+                            <input
+                              type="number"
+                              step={1}
+                              value={jCut.offsetMm}
+                              onChange={(e) =>
+                                updateJigsawCut(selectedPart.id, jCut.id, {
+                                  offsetMm: Number(e.target.value) || 0,
+                                })
+                              }
+                              className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                            />
+                          </div>
+                        )}
+                        {jCut.angleDeg !== undefined && (
+                          <div>
+                            <span className="text-slate-500 block">
+                              זווית (°):
+                            </span>
+                            <input
+                              type="number"
+                              step={0.5}
+                              min={-70}
+                              max={70}
+                              value={jCut.angleDeg}
+                              onChange={(e) =>
+                                updateJigsawCut(selectedPart.id, jCut.id, {
+                                  angleDeg: Number(e.target.value) || 0,
+                                })
+                              }
+                              className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                            />
+                          </div>
+                        )}
+                        {jCut.depthMm !== undefined &&
+                          (!jCut.referencePartId || jCut.type !== 'trim-plane') && (
                             <div>
                               <span className="text-slate-500 block">
-                                עומק חיתוך (מ"מ):
+                                עומק (מ"מ):
                               </span>
                               <input
                                 type="number"
                                 step={2}
                                 min={5}
-                                max={400}
+                                max={600}
                                 value={jCut.depthMm}
                                 onChange={(e) =>
                                   updateJigsawCut(selectedPart.id, jCut.id, {
-                                    depthMm: Math.max(5, Number(e.target.value) || 10),
-                                  })
-                                }
-                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
-                              />
-                            </div>
-                          )}
-                          {jCut.lengthMm !== undefined && (
-                            <div>
-                              <span className="text-slate-500 block">
-                                מפתח / אורך (מ"מ):
-                              </span>
-                              <input
-                                type="number"
-                                step={10}
-                                min={20}
-                                max={selectedPart.dimensions.length}
-                                value={jCut.lengthMm}
-                                onChange={(e) =>
-                                  updateJigsawCut(selectedPart.id, jCut.id, {
-                                    lengthMm: Math.max(
-                                      20,
-                                      Number(e.target.value) || 40
+                                    depthMm: Math.max(
+                                      5,
+                                      Number(e.target.value) || 10
                                     ),
                                   })
                                 }
@@ -1021,56 +1142,77 @@ export const LeftInspectorPanel: React.FC = () => {
                               />
                             </div>
                           )}
-                          {jCut.radiusMm !== undefined && (
-                            <div>
-                              <span className="text-slate-500 block">
-                                גודל קטימה (מ"מ):
-                              </span>
-                              <input
-                                type="number"
-                                step={5}
-                                min={10}
-                                max={200}
-                                value={jCut.radiusMm}
-                                onChange={(e) =>
-                                  updateJigsawCut(selectedPart.id, jCut.id, {
-                                    radiusMm: Math.max(
-                                      10,
-                                      Number(e.target.value) || 20
-                                    ),
-                                  })
-                                }
-                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
-                              />
-                            </div>
-                          )}
-                          {(jCut.type === 'arch' ||
-                            jCut.type === 'taper' ||
-                            jCut.type === 'l-notch') && (
-                            <div>
-                              <span className="text-slate-500 block">
-                                דופן / קצה:
-                              </span>
-                              <select
-                                value={jCut.edge || 'bottom'}
-                                onChange={(e) =>
-                                  updateJigsawCut(selectedPart.id, jCut.id, {
-                                    edge: e.target.value as NonNullable<
-                                      typeof jCut.edge
-                                    >,
-                                  })
-                                }
-                                className="w-full bg-white border border-slate-200 rounded px-1 py-0.5 font-bold"
-                              >
-                                <option value="bottom">דופן תחתונה / אחורית</option>
-                                <option value="top">דופן עליונה / קדמית</option>
-                                <option value="start">קצה התחלה (Start)</option>
-                                <option value="end">קצה סיום (End)</option>
-                              </select>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        {jCut.lengthMm !== undefined && (
+                          <div>
+                            <span className="text-slate-500 block">
+                              מפתח (מ"מ):
+                            </span>
+                            <input
+                              type="number"
+                              step={10}
+                              min={20}
+                              max={selectedPart.dimensions.length}
+                              value={jCut.lengthMm}
+                              onChange={(e) =>
+                                updateJigsawCut(selectedPart.id, jCut.id, {
+                                  lengthMm: Math.max(
+                                    20,
+                                    Number(e.target.value) || 40
+                                  ),
+                                })
+                              }
+                              className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                            />
+                          </div>
+                        )}
+                        {jCut.radiusMm !== undefined && (
+                          <div>
+                            <span className="text-slate-500 block">
+                              קטימה (מ"מ):
+                            </span>
+                            <input
+                              type="number"
+                              step={5}
+                              min={10}
+                              max={200}
+                              value={jCut.radiusMm}
+                              onChange={(e) =>
+                                updateJigsawCut(selectedPart.id, jCut.id, {
+                                  radiusMm: Math.max(
+                                    10,
+                                    Number(e.target.value) || 20
+                                  ),
+                                })
+                              }
+                              className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 font-mono font-bold"
+                            />
+                          </div>
+                        )}
+                        {(jCut.type === 'arch' ||
+                          jCut.type === 'taper' ||
+                          jCut.type === 'l-notch' ||
+                          jCut.type === 'trim-plane') && (
+                          <div>
+                            <span className="text-slate-500 block">דופן:</span>
+                            <select
+                              value={jCut.edge || 'top'}
+                              onChange={(e) =>
+                                updateJigsawCut(selectedPart.id, jCut.id, {
+                                  edge: e.target.value as NonNullable<
+                                    typeof jCut.edge
+                                  >,
+                                })
+                              }
+                              className="w-full bg-white border border-slate-200 rounded px-1 py-0.5 font-bold"
+                            >
+                              <option value="top">עליונה / קדמית</option>
+                              <option value="bottom">תחתונה / אחורית</option>
+                              <option value="start">קצה התחלה</option>
+                              <option value="end">קצה סיום</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1345,16 +1487,21 @@ export const LeftInspectorPanel: React.FC = () => {
             <div className="p-2.5 space-y-2.5">
               {/* Group Unit Banner when an entire Group is selected */}
               {activeSelectedGroup && (
-                <div className="px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between gap-1">
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold text-amber-900 truncate">
-                      קבוצה: {activeSelectedGroup.name} ({selectedIds.length})
-                    </div>
-                    <div className="text-[9px] text-amber-700">
-                      מתפקדת כיחידה אחת (Alt+קליק לקורה בודדת)
-                    </div>
-                  </div>
+                <div className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg text-[11px] font-bold text-amber-900 truncate">
+                  קבוצה: {activeSelectedGroup.name} ({selectedIds.length})
                 </div>
+              )}
+
+              {/* Severed Offcut Piece Action Banner */}
+              {selectedPart.detachedFragmentIndex !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => useProjectStore.getState().deleteSelected()}
+                  className="w-full py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>מחק שארית מנותקת (Delete)</span>
+                </button>
               )}
 
               {/* Mode Indicator: Single-Click (Move) vs Double-Click (Dimensions) */}

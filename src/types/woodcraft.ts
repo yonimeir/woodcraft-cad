@@ -103,7 +103,7 @@ export interface JigsawCut {
   lengthMm?: number;
   /** Offset from center or start in mm */
   offsetMm?: number;
-  /** Angle in degrees (for diagonal line / taper / chamfer cuts) */
+  /** Angle in degrees (for diagonal line / taper / chamfer / trim-plane cuts) */
   angleDeg?: number;
   /** Radius in mm (for corner rounding / arch) */
   radiusMm?: number;
@@ -141,6 +141,10 @@ export interface Part {
   dadoNotches: DadoNotch[];
   /** Custom Jigsaw / Profile / Flush-Trim cuts applied to the beam */
   jigsawCuts?: JigsawCut[];
+  /** Index of connected 3D mesh fragment that was severed by a Dado/Jigsaw cut (0 = main body, 1+ = severed offcut piece) */
+  detachedFragmentIndex?: number;
+  /** Indices of severed 3D mesh fragments that have been split out into separate selectable Parts */
+  excludedFragmentIndices?: number[];
   groupId: string | null;
   visible: boolean;
   locked: boolean;
