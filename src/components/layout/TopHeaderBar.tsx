@@ -16,6 +16,7 @@ import {
   FolderPlus,
   FolderX,
   Home,
+  Keyboard,
   Magnet,
   Redo2,
   Ruler,
@@ -23,6 +24,7 @@ import {
   Trash2,
   Undo2,
   Upload,
+  X,
 } from 'lucide-react';
 import {
   IconAiBlueprint,
@@ -40,6 +42,7 @@ import {
 export const TopHeaderBar: React.FC = () => {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [generatorOpen, setGeneratorOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [ioMenuOpen, setIoMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -81,6 +84,7 @@ export const TopHeaderBar: React.FC = () => {
       const detail = (e as CustomEvent).detail;
       if (detail === 'templates') setTemplatesOpen(true);
       if (detail === 'generator') setGeneratorOpen(true);
+      if (detail === 'shortcuts') setShortcutsOpen((prev) => !prev);
     };
     window.addEventListener('woodcraft:open-modal', handler);
     return () => window.removeEventListener('woodcraft:open-modal', handler);
@@ -585,10 +589,129 @@ export const TopHeaderBar: React.FC = () => {
               >
                 {unitMode === 'mm' ? 'מ"מ' : 'ס"מ'}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setShortcutsOpen(true)}
+                className={iconBtnClass(shortcutsOpen, false)}
+                title="קיצורי מקלדת (עובד בעברית ובאנגלית — מקש ?)"
+              >
+                <Keyboard className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Keyboard Shortcuts Modal (Light Mode) */}
+      {shortcutsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 backdrop-blur-sm p-4"
+          onClick={() => setShortcutsOpen(false)}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full overflow-hidden shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Keyboard className="w-4 h-4 text-amber-600" />
+                <h2 className="text-sm font-bold text-slate-900">
+                  קיצורי מקלדת (תומך בעברית ובאנגלית)
+                </h2>
+              </div>
+              <button
+                onClick={() => setShortcutsOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  סיבוב סביב צירי העולם (ללא נעילת צירים)
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="font-semibold text-blue-600">סיבוב סביב ציר X (כחול)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">X / ס</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="font-semibold text-slate-900">סיבוב סביב ציר Y (שחור - אופקי)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Y / R</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="font-semibold text-red-600">סיבוב סביב ציר Z (אדום)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Z / ז</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-600">סיבוב הפוך (-90°) / עדין (15°)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Shift / Alt + ציר</kbd>
+                </div>
+
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 pt-2">
+                  תנועה, גובה ואורך קורה
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">הזזה אופקית לפי רשת (Shift = ×10)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">חיצים</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">הגבהה / הנמכה בציר Y</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Alt + ↑/↓</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">הצמדה מיידית לרצפה (Y=0)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">D / ג</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">הארכה / קיצור קורה (Shift = ×10)</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">+ / -</kbd>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  בחירה, עריכה וכלי נגרות
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">מעבר בין מצב תנועה למצב מידות</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Enter</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">מעבר מהיר בין קורות בפרויקט</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Tab</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">כלי יישור / עוגן / גרונג / חורי כיס</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">L / P / M / K</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">העתק / הדבק / שכפל</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Ctrl + C / V / D</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">בטל / בצע שוב</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">Ctrl + Z / Y</kbd>
+                </div>
+
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 pt-2">
+                  זוויות מצלמה ותצוגה
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">חזית / על / ימין / תלת-ממד</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">1 / 2 / 3 / 4</kbd>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700">מרכוז מצלמה לכל הפרויקט</span>
+                  <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono font-bold">F / 0</kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <TemplatesModal
         isOpen={templatesOpen}

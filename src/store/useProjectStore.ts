@@ -15,6 +15,7 @@ import { sanitizeAndAuditGeneratedModel } from '../utils/aiProductGenerator';
 import { renderAndValidateMultiAngle } from '../utils/visualMultiAngleValidator';
 import {
   computeSmartSnap,
+  computeWorldAxisRotation,
   detectPartCollisions,
   getPartQuaternion,
   getPartWorldBounds,
@@ -111,6 +112,7 @@ interface ProjectState {
   selectPart: (id: string | null, multi?: boolean) => void;
   selectAll: () => void;
   selectGroup: (groupId: string) => void;
+  cycleSelectPart: (direction?: 1 | -1) => void;
 
   addPartFromStock: (stockId: string) => void;
   updatePart: (id: string, patch: Partial<Part>, recordHistory?: boolean) => void;
@@ -120,6 +122,14 @@ interface ProjectState {
     newRotation: [number, number, number],
     recordHistory?: boolean
   ) => void;
+  rotatePartByWorldAxis: (
+    id: string,
+    axis: 'x' | 'y' | 'z',
+    deltaDeg: number,
+    recordHistory?: boolean
+  ) => void;
+  rotateSelectedByWorldAxis: (axis: 'x' | 'y' | 'z', deltaDeg: number) => void;
+  stretchSelectedLengthDelta: (deltaMm: number) => void;
   stretchPartSide: (
     id: string,
     side: 'length-start' | 'length-end' | 'width-start' | 'width-end',
@@ -425,6 +435,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ selectedIds: groupParts });
   },
 
+  cycleSelectPart: (direction = 1) => {
+    const visibleUnlocked = get().parts.filter((p) => p.visible && !p.locked);
+    if (visibleUnlocked.length === 0) return;
+    const { selectedIds } = get();
+    const curIdx =
+      selectedIds.length > 0
+        ? visibleUnlocked.findIndex((p) => p.id === selectedIds[0])
+        : -1;
+    const nextIdx =
+      (curIdx + direction + visibleUnlocked.length) % visibleUnlocked.length;
+    set({
+      selectedIds: [visibleUnlocked[nextIdx].id],
+      partEditMode: 'move',
+    });
+  },
+
   addPartFromStock: (stockId) => {
     const stock = getStockById(stockId);
     get().pushHistory();
@@ -494,6 +520,51 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ parts: nextParts });
     get().validateAndCleanDados();
     saveToLocalStorage({ ...get(), parts: get().parts });
+  },
+
+  rotatePartByWorldAxis: (id, axis, deltaDeg, recordHistory = true) => {
+    const part = get().parts.find((p) => p.id === id);
+    if (!part || part.locked) return;
+    if (recordHistory) get().pushHistory();
+
+    const nextRot = computeWorldAxisRotation(part.rotation, axis, deltaDeg);
+    const { position, rotation } = rotatePartAroundPivot(part, nextRot);
+    const nextParts = get().parts.map((p) =>
+      p.id === id ? { ...p, position, rotation } : p
+    );
+    set({ parts: nextParts });
+    get().validateAndCleanDados();
+    saveToLocalStorage({ ...get(), parts: get().parts });
+  },
+
+  rotateSelectedByWorldAxis: (axis, deltaDeg) => {
+    const { parts, selectedIds } = get();
+    if (selectedIds.length === 0) return;
+    get().pushHistory();
+
+    const nextParts = parts.map((p) => {
+      if (!selectedIds.includes(p.id) || p.locked) return p;
+      const nextRot = computeWorldAxisRotation(p.rotation, axis, deltaDeg);
+      const { position, rotation } = rotatePartAroundPivot(p, nextRot);
+      return { ...p, position, rotation };
+    });
+
+    set({ parts: nextParts });
+    get().validateAndCleanDados();
+    saveToLocalStorage({ ...get(), parts: nextParts });
+  },
+
+  stretchSelectedLengthDelta: (deltaMm) => {
+    const { selectedIds, parts } = get();
+    if (selectedIds.length === 0) return;
+    const primary = parts.find((p) => p.id === selectedIds[0]);
+    if (!primary || primary.locked) return;
+    get().stretchPartSide(
+      primary.id,
+      'length-end',
+      primary.dimensions.length + deltaMm,
+      true
+    );
   },
 
   stretchPartSide: (id, side, newTotalDimMm, recordHistory = false) => {

@@ -21,10 +21,24 @@ export const App: React.FC = () => {
     (s) => s.createGroupFromSelected
   );
   const moveSelectedDelta = useProjectStore((s) => s.moveSelectedDelta);
+  const rotateSelectedByWorldAxis = useProjectStore(
+    (s) => s.rotateSelectedByWorldAxis
+  );
+  const stretchSelectedLengthDelta = useProjectStore(
+    (s) => s.stretchSelectedLengthDelta
+  );
+  const cycleSelectPart = useProjectStore((s) => s.cycleSelectPart);
   const dropSelectedToFloor = useProjectStore((s) => s.dropSelectedToFloor);
   const selectAll = useProjectStore((s) => s.selectAll);
   const selectPart = useProjectStore((s) => s.selectPart);
   const requestCameraView = useProjectStore((s) => s.requestCameraView);
+  const gridSnapStepMm = useProjectStore((s) => s.gridSnapStepMm);
+  const partEditMode = useProjectStore((s) => s.partEditMode);
+  const setPartEditMode = useProjectStore((s) => s.setPartEditMode);
+  const activeToolPopover = useProjectStore((s) => s.activeToolPopover);
+  const setActiveToolPopover = useProjectStore((s) => s.setActiveToolPopover);
+  const snapEnabled = useProjectStore((s) => s.snapEnabled);
+  const setSnapEnabled = useProjectStore((s) => s.setSnapEnabled);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -49,6 +63,12 @@ export const App: React.FC = () => {
       const isG = e.code === 'KeyG' || keyLower === 'g' || e.key === 'ע';
       const isA = e.code === 'KeyA' || keyLower === 'a' || e.key === 'ש';
       const isF = e.code === 'KeyF' || keyLower === 'f' || e.key === 'כ';
+      const isR = e.code === 'KeyR' || keyLower === 'r' || e.key === 'ר';
+      const isL = e.code === 'KeyL' || keyLower === 'l' || e.key === 'ך';
+      const isP = e.code === 'KeyP' || keyLower === 'p' || e.key === 'פ';
+      const isM = e.code === 'KeyM' || keyLower === 'm' || e.key === 'צ';
+      const isK = e.code === 'KeyK' || keyLower === 'k' || e.key === 'ל';
+      const isS = e.code === 'KeyS' || keyLower === 's' || e.key === 'ד';
 
       if ((e.ctrlKey || e.metaKey) && isZ) {
         e.preventDefault();
@@ -75,22 +95,109 @@ export const App: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && isA) {
         e.preventDefault();
         selectAll();
+      } else if (!e.ctrlKey && !e.metaKey && isX) {
+        // Rotate around World X (Blue axis)
+        e.preventDefault();
+        const deg = e.altKey ? (e.shiftKey ? -15 : 15) : e.shiftKey ? -90 : 90;
+        rotateSelectedByWorldAxis('x', deg);
+      } else if (!e.ctrlKey && !e.metaKey && (isY || isR)) {
+        // Rotate around World Y (Black axis - horizontal spin)
+        e.preventDefault();
+        const deg = e.altKey ? (e.shiftKey ? -15 : 15) : e.shiftKey ? -90 : 90;
+        rotateSelectedByWorldAxis('y', deg);
+      } else if (!e.ctrlKey && !e.metaKey && isZ) {
+        // Rotate around World Z (Red axis)
+        e.preventDefault();
+        const deg = e.altKey ? (e.shiftKey ? -15 : 15) : e.shiftKey ? -90 : 90;
+        rotateSelectedByWorldAxis('z', deg);
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isD) {
         e.preventDefault();
         dropSelectedToFloor();
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isF) {
         e.preventDefault();
         requestCameraView('fit');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isL) {
+        e.preventDefault();
+        setActiveToolPopover(activeToolPopover === 'align' ? 'none' : 'align');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isP) {
+        e.preventDefault();
+        setActiveToolPopover(activeToolPopover === 'pivot' ? 'none' : 'pivot');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isM) {
+        e.preventDefault();
+        setActiveToolPopover(activeToolPopover === 'miter' ? 'none' : 'miter');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isK) {
+        e.preventDefault();
+        setActiveToolPopover(
+          activeToolPopover === 'pocket' ? 'none' : 'pocket'
+        );
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isS) {
+        e.preventDefault();
+        setSnapEnabled(!snapEnabled);
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Digit1') {
+        e.preventDefault();
+        requestCameraView('front');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Digit2') {
+        e.preventDefault();
+        requestCameraView('top');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Digit3') {
+        e.preventDefault();
+        requestCameraView('right');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Digit4') {
+        e.preventDefault();
+        requestCameraView('iso');
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Digit0') {
+        e.preventDefault();
+        requestCameraView('fit');
+      } else if (
+        !e.ctrlKey &&
+        !e.metaKey &&
+        (e.code === 'Equal' ||
+          e.code === 'BracketRight' ||
+          e.key === '+' ||
+          e.key === '=')
+      ) {
+        e.preventDefault();
+        const baseStep = Math.max(5, gridSnapStepMm);
+        stretchSelectedLengthDelta(e.shiftKey ? baseStep * 10 : baseStep);
+      } else if (
+        !e.ctrlKey &&
+        !e.metaKey &&
+        (e.code === 'Minus' || e.code === 'BracketLeft' || e.key === '-')
+      ) {
+        e.preventDefault();
+        const baseStep = Math.max(5, gridSnapStepMm);
+        stretchSelectedLengthDelta(e.shiftKey ? -baseStep * 10 : -baseStep);
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        cycleSelectPart(e.shiftKey ? -1 : 1);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        setPartEditMode(partEditMode === 'move' ? 'dimensions' : 'move');
+      } else if (e.key === '?' || e.code === 'Slash') {
+        e.preventDefault();
+        window.dispatchEvent(
+          new CustomEvent('woodcraft:open-modal', { detail: 'shortcuts' })
+        );
       } else if (e.key === 'Escape') {
-        selectPart(null);
+        if (activeToolPopover !== 'none') {
+          setActiveToolPopover('none');
+        } else {
+          selectPart(null);
+        }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         deleteSelected();
+      } else if (e.key === 'PageUp' || e.key === 'PageDown') {
+        e.preventDefault();
+        const baseStep = Math.max(1, gridSnapStepMm);
+        const step = e.shiftKey ? baseStep * 10 : baseStep;
+        moveSelectedDelta([0, e.key === 'PageUp' ? step : -step, 0]);
       } else if (
         ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
       ) {
         e.preventDefault();
-        const step = e.shiftKey ? 2 : 15;
+        const baseStep = Math.max(1, gridSnapStepMm);
+        const step = e.shiftKey ? baseStep * 10 : baseStep;
         if (e.key === 'ArrowLeft') moveSelectedDelta([-step, 0, 0]);
         if (e.key === 'ArrowRight') moveSelectedDelta([step, 0, 0]);
         if (e.key === 'ArrowUp')
@@ -112,10 +219,20 @@ export const App: React.FC = () => {
     deleteSelected,
     createGroupFromSelected,
     moveSelectedDelta,
+    rotateSelectedByWorldAxis,
+    stretchSelectedLengthDelta,
+    cycleSelectPart,
     dropSelectedToFloor,
     selectAll,
     selectPart,
     requestCameraView,
+    gridSnapStepMm,
+    partEditMode,
+    setPartEditMode,
+    activeToolPopover,
+    setActiveToolPopover,
+    snapEnabled,
+    setSnapEnabled,
   ]);
 
   return (

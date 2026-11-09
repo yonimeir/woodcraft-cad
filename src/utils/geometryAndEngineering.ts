@@ -128,6 +128,46 @@ export function getPivotWorldPosition(
 }
 
 /**
+ * Computes the new Euler `[rx, ry, rz]` (in degrees) resulting from rotating `initialRotationDeg`
+ * by `deltaDeg` strictly around the global World X (`[1,0,0]`), World Y (`[0,1,0]`), or World Z (`[0,0,1]`) axis.
+ * Uses quaternion pre-multiplication (`qDelta * qInit`) to eliminate Euler gimbal lock completely.
+ */
+export function computeWorldAxisRotation(
+  initialRotationDeg: [number, number, number],
+  worldAxis: 'x' | 'y' | 'z',
+  deltaDeg: number
+): [number, number, number] {
+  const qInit = getPartQuaternion(initialRotationDeg);
+  const axisVec =
+    worldAxis === 'x'
+      ? new THREE.Vector3(1, 0, 0)
+      : worldAxis === 'y'
+      ? new THREE.Vector3(0, 1, 0)
+      : new THREE.Vector3(0, 0, 1);
+
+  const qDelta = new THREE.Quaternion().setFromAxisAngle(
+    axisVec,
+    degToRad(deltaDeg)
+  );
+  const qFinal = qDelta.multiply(qInit).normalize();
+  const euler = new THREE.Euler().setFromQuaternion(qFinal, 'XYZ');
+
+  const normDeg = (rad: number) => {
+    let d = Math.round(radToDeg(rad) * 10) / 10;
+    d = ((d % 360) + 360) % 360;
+    // Snap near-cardinal angles (0, 90, 180, 270, 360) to exact integers
+    for (const c of [0, 90, 180, 270, 360]) {
+      if (Math.abs(d - c) < 0.15) {
+        return c === 360 ? 0 : c;
+      }
+    }
+    return d;
+  };
+
+  return [normDeg(euler.x), normDeg(euler.y), normDeg(euler.z)];
+}
+
+/**
  * Rotates a part to a new Euler rotation `[rx, ry, rz]` while keeping its selected `pivot` anchor point fixed in world space.
  */
 export function rotatePartAroundPivot(
@@ -153,18 +193,31 @@ export function rotatePartAroundPivot(
   const rotatedOffset = localOffset.clone().applyQuaternion(newQuat);
 
   const newCenter = anchorWorld.sub(rotatedOffset);
+  const nextRotation: [number, number, number] = [
+    ((Math.round(newRotationDeg[0] * 10) / 10) % 360 + 360) % 360,
+    ((Math.round(newRotationDeg[1] * 10) / 10) % 360 + 360) % 360,
+    ((Math.round(newRotationDeg[2] * 10) / 10) % 360 + 360) % 360,
+  ];
+
+  const nextPos: [number, number, number] = [
+    Math.round(newCenter.x * 10) / 10,
+    Math.round(newCenter.y * 10) / 10,
+    Math.round(newCenter.z * 10) / 10,
+  ];
+
+  // Prevent rotating below floor (Y=0)
+  const b = getPartWorldBounds({
+    ...part,
+    position: nextPos,
+    rotation: nextRotation,
+  });
+  if (b.min[1] < 0) {
+    nextPos[1] = Math.round((nextPos[1] - b.min[1]) * 10) / 10;
+  }
 
   return {
-    position: [
-      Math.round(newCenter.x * 10) / 10,
-      Math.round(newCenter.y * 10) / 10,
-      Math.round(newCenter.z * 10) / 10,
-    ],
-    rotation: [
-      ((Math.round(newRotationDeg[0] * 10) / 10) % 360 + 360) % 360,
-      ((Math.round(newRotationDeg[1] * 10) / 10) % 360 + 360) % 360,
-      ((Math.round(newRotationDeg[2] * 10) / 10) % 360 + 360) % 360,
-    ],
+    position: nextPos,
+    rotation: nextRotation,
   };
 }
 

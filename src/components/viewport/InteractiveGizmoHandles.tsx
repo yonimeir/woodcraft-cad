@@ -6,6 +6,7 @@ import { Part } from '../../types/woodcraft';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getStockById } from '../../data/stockLibrary';
 import {
+  computeWorldAxisRotation,
   getPartQuaternion,
   getPartWorldBounds,
   getPivotWorldPosition,
@@ -232,17 +233,16 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
           deltaDeg = Math.round(deltaDeg / snapStep) * snapStep;
         }
 
-        const axisIdx =
-          dragState.axis === 'x' ? 0 : dragState.axis === 'y' ? 1 : 2;
-        const nextRot: [number, number, number] = [
-          ...dragState.initialRotation,
-        ];
-        nextRot[axisIdx] =
-          (((dragState.initialRotation[axisIdx] + deltaDeg) % 360) + 360) % 360;
+        const nextRot = computeWorldAxisRotation(
+          dragState.initialRotation,
+          dragState.axis,
+          deltaDeg
+        );
 
         rotatePartWithPivot(currentPart.id, nextRot, false);
+        const sign = deltaDeg > 0 ? '+' : '';
         setLiveBadge(
-          `${dragState.axis.toUpperCase()}: ${Math.round(nextRot[axisIdx])}°`
+          `ציר ${dragState.axis.toUpperCase()}: ${sign}${Math.round(deltaDeg)}°`
         );
       } else if (dragState.kind === 'drag-pivot') {
         const invQuat = getPartQuaternion(currentPart.rotation)
@@ -599,10 +599,10 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
               </mesh>
             </group>
 
-            {/* 2. X-AXIS CURVED DOUBLE-ARROW (BLUE #2563eb — Vertical YZ plane outside +X end) */}
+            {/* 2. X-AXIS CURVED DOUBLE-ARROW (BLUE #2563eb — Vertical YZ plane outside +X end, facing front-top) */}
             <group
-              position={[halfBx + 18, 0, 0]}
-              rotation={[0, Math.PI / 2, 0]}
+              position={[halfBx + 16, 0, 0]}
+              rotation={[0, -Math.PI / 2, Math.PI / 4]}
               userData={{ isGizmoHandle: true }}
               onPointerOver={(e) => {
                 e.stopPropagation();
