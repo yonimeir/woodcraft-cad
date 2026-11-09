@@ -7,10 +7,12 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { getStockById } from '../../data/stockLibrary';
 import {
   computeWorldAxisRotation,
+  degToRad,
   getPartQuaternion,
   getPartWorldBounds,
   getPivotWorldPosition,
   resolvePartLengths,
+  rotateAssemblyAroundWorldPoint,
 } from '../../utils/geometryAndEngineering';
 import { IconPivotTarget } from '../icons/WoodCraftIcons';
 
@@ -28,6 +30,7 @@ type DragState =
       axisVec: THREE.Vector3;
       startWorldPoint: THREE.Vector3;
       initialPartPos: [number, number, number];
+      initialAssemblyParts: Part[];
       plane: THREE.Plane;
     }
   | {
@@ -44,6 +47,7 @@ type DragState =
       pivotWorld: THREE.Vector3;
       startAngleRad: number;
       initialRotation: [number, number, number];
+      initialAssemblyParts: Part[];
       plane: THREE.Plane;
       uVec: THREE.Vector3;
       vVec: THREE.Vector3;
@@ -212,19 +216,29 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
         ];
 
         if (ev.shiftKey) {
-          // Ultra-fine movement bypassing magnetic snap jumps
-          useProjectStore.getState().updatePart(
-            currentPart.id,
-            {
-              position: [
-                Math.round(nextPos[0] * 10) / 10,
-                Math.max(0, Math.round(nextPos[1] * 10) / 10),
-                Math.round(nextPos[2] * 10) / 10,
-              ],
-            },
-            false
+          // Ultra-fine movement bypassing magnetic snap jumps — moves the entire selected group/assembly together!
+          const deltaVec = [
+            dragState.axisVec.x * snappedDelta,
+            dragState.axisVec.y * snappedDelta,
+            dragState.axisVec.z * snappedDelta,
+          ];
+          const initMap = new Map(
+            dragState.initialAssemblyParts.map((ap) => [ap.id, ap.position])
           );
-          setActiveSnapLines([]);
+          const storeState = useProjectStore.getState();
+          const nextParts = storeState.parts.map((p) => {
+            const initPos = initMap.get(p.id);
+            if (!initPos || p.locked) return p;
+            return {
+              ...p,
+              position: [
+                Math.round((initPos[0] + deltaVec[0]) * 10) / 10,
+                Math.max(5, Math.round((initPos[1] + deltaVec[1]) * 10) / 10),
+                Math.round((initPos[2] + deltaVec[2]) * 10) / 10,
+              ] as [number, number, number],
+            };
+          });
+          useProjectStore.setState({ parts: nextParts, activeSnapLines: [] });
         } else {
           movePartWithSnap(currentPart.id, nextPos, false);
         }
@@ -257,13 +271,41 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
           deltaDeg = Math.round(deltaDeg / snapStep) * snapStep;
         }
 
-        const nextRot = computeWorldAxisRotation(
-          dragState.initialRotation,
-          dragState.axis,
-          deltaDeg
-        );
+        if (dragState.initialAssemblyParts.length > 1) {
+          // Rotate the entire selected group/assembly as one rigid 3D body around `dragState.pivotWorld`
+          const axisVec =
+            dragState.axis === 'x'
+              ? new THREE.Vector3(1, 0, 0)
+              : dragState.axis === 'y'
+              ? new THREE.Vector3(0, 1, 0)
+              : new THREE.Vector3(0, 0, 1);
+          const qDelta = new THREE.Quaternion().setFromAxisAngle(
+            axisVec,
+            degToRad(deltaDeg)
+          );
+          const updatesMap = rotateAssemblyAroundWorldPoint(
+            dragState.initialAssemblyParts,
+            [
+              dragState.pivotWorld.x,
+              dragState.pivotWorld.y,
+              dragState.pivotWorld.z,
+            ],
+            qDelta
+          );
+          const storeState = useProjectStore.getState();
+          const nextParts = storeState.parts.map((p) =>
+            updatesMap.has(p.id) ? { ...p, ...updatesMap.get(p.id)! } : p
+          );
+          useProjectStore.setState({ parts: nextParts });
+        } else {
+          const nextRot = computeWorldAxisRotation(
+            dragState.initialRotation,
+            dragState.axis,
+            deltaDeg
+          );
+          rotatePartWithPivot(currentPart.id, nextRot, false);
+        }
 
-        rotatePartWithPivot(currentPart.id, nextRot, false);
         const sign = deltaDeg > 0 ? '+' : '';
         const formattedDeg =
           snapStep < 1 ? deltaDeg.toFixed(1) : `${Math.round(deltaDeg * 10) / 10}`;
@@ -368,12 +410,25 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     const hit =
       intersectPlaneAtClientXY(plane, clientX, clientY) || origin.clone();
 
+    const storeState = useProjectStore.getState();
+    const movingIds = storeState.selectedIds.includes(part.id)
+      ? storeState.selectedIds
+      : [part.id];
+    const initialAssemblyParts = storeState.parts
+      .filter((p) => movingIds.includes(p.id) && !p.locked)
+      .map((p) => ({
+        ...p,
+        position: [...p.position] as [number, number, number],
+        rotation: [...p.rotation] as [number, number, number],
+      }));
+
     setDragState({
       kind: 'translate-axis',
       axis,
       axisVec: axisDir,
       startWorldPoint: hit,
       initialPartPos: [...part.position],
+      initialAssemblyParts,
       plane,
     });
   };
@@ -460,12 +515,25 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     const rel = hit.clone().sub(pivotVec);
     const startAngleRad = Math.atan2(rel.dot(vVec), rel.dot(uVec));
 
+    const storeState = useProjectStore.getState();
+    const movingIds = storeState.selectedIds.includes(part.id)
+      ? storeState.selectedIds
+      : [part.id];
+    const initialAssemblyParts = storeState.parts
+      .filter((p) => movingIds.includes(p.id) && !p.locked)
+      .map((p) => ({
+        ...p,
+        position: [...p.position] as [number, number, number],
+        rotation: [...p.rotation] as [number, number, number],
+      }));
+
     setDragState({
       kind: 'rotate-axis',
       axis,
       pivotWorld: pivotVec,
       startAngleRad,
       initialRotation: [...part.rotation],
+      initialAssemblyParts,
       plane,
       uVec,
       vVec,

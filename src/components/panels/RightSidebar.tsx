@@ -253,12 +253,22 @@ export const RightSidebar: React.FC = () => {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => selectGroup(grp.id)}
+                          onClick={(e) => {
+                            if (
+                              (e.shiftKey || e.ctrlKey || e.metaKey) &&
+                              grpParts.length > 0
+                            ) {
+                              selectPart(grpParts[0].id, true, false);
+                            } else {
+                              selectGroup(grp.id);
+                            }
+                          }}
                           onDoubleClick={() => {
                             setEditingGroupId(grp.id);
                             setEditingName(grp.name);
                           }}
                           className="text-xs font-bold text-slate-800 truncate text-start tabular-nums cursor-pointer"
+                          title="לחץ לבחירת הקבוצה כיחידה אחת (Shift+קליק לבחירה מרובה עם קורות אחרות)"
                         >
                           {grp.name} ({grpParts.length})
                         </button>
@@ -296,8 +306,13 @@ export const RightSidebar: React.FC = () => {
                           <div
                             key={part.id}
                             onClick={(e) =>
-                              selectPart(part.id, e.shiftKey || e.ctrlKey)
+                              selectPart(
+                                part.id,
+                                e.shiftKey || e.ctrlKey || e.metaKey,
+                                e.altKey
+                              )
                             }
+                            title="לחיצה בוחרת את כל הקבוצה | Alt+לחיצה בוחרת רק קורה זו מתוך הקבוצה"
                             className={`flex items-center justify-between px-2 py-1 rounded text-xs cursor-pointer transition ${
                               isSel
                                 ? 'bg-sky-500 text-white font-bold'

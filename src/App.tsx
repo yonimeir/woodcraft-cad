@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useProjectStore } from './store/useProjectStore';
 import { TopHeaderBar } from './components/layout/TopHeaderBar';
 import { RightSidebar } from './components/panels/RightSidebar';
@@ -39,9 +39,36 @@ export const App: React.FC = () => {
   const setActiveToolPopover = useProjectStore((s) => s.setActiveToolPopover);
   const snapEnabled = useProjectStore((s) => s.snapEnabled);
   const setSnapEnabled = useProjectStore((s) => s.setSnapEnabled);
+  const altPressedRef = useRef(false);
 
   useEffect(() => {
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (
+        e.key === 'Alt' ||
+        e.key === 'AltGraph' ||
+        e.code === 'AltLeft' ||
+        e.code === 'AltRight'
+      ) {
+        altPressedRef.current = false;
+      }
+    };
+    const handleBlur = () => {
+      altPressedRef.current = false;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'Alt' ||
+        e.key === 'AltGraph' ||
+        e.code === 'AltLeft' ||
+        e.code === 'AltRight'
+      ) {
+        altPressedRef.current = true;
+        // Prevent Windows browser menu bar from stealing focus on Alt press
+        e.preventDefault();
+        return;
+      }
+
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -52,6 +79,12 @@ export const App: React.FC = () => {
       ) {
         return;
       }
+
+      const isAlt =
+        e.altKey ||
+        e.getModifierState?.('Alt') ||
+        e.getModifierState?.('AltGraph') ||
+        altPressedRef.current;
 
       const keyLower = e.key.toLowerCase();
       const isZ = e.code === 'KeyZ' || keyLower === 'z' || e.key === 'ז';
@@ -98,39 +131,39 @@ export const App: React.FC = () => {
       } else if (!e.ctrlKey && !e.metaKey && isX) {
         // Rotate around World X (Blue axis): Alt = ±1° fine, normal = ±90° (or ±angleSnapDeg)
         e.preventDefault();
-        const deg = e.altKey ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
+        const deg = isAlt ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
         rotateSelectedByWorldAxis('x', deg);
       } else if (!e.ctrlKey && !e.metaKey && (isY || isR)) {
         // Rotate around World Y (Black axis - horizontal spin): Alt = ±1° fine, normal = ±90°
         e.preventDefault();
-        const deg = e.altKey ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
+        const deg = isAlt ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
         rotateSelectedByWorldAxis('y', deg);
       } else if (!e.ctrlKey && !e.metaKey && isZ) {
         // Rotate around World Z (Red axis): Alt = ±1° fine, normal = ±90°
         e.preventDefault();
-        const deg = e.altKey ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
+        const deg = isAlt ? (e.shiftKey ? -1 : 1) : e.shiftKey ? -90 : 90;
         rotateSelectedByWorldAxis('z', deg);
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isD) {
+      } else if (!e.ctrlKey && !e.metaKey && !isAlt && isD) {
         e.preventDefault();
         dropSelectedToFloor();
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isF) {
+      } else if (!e.ctrlKey && !e.metaKey && !isAlt && isF) {
         e.preventDefault();
         requestCameraView('fit');
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isL) {
+      } else if (!e.ctrlKey && !e.metaKey && !isAlt && isL) {
         e.preventDefault();
         setActiveToolPopover(activeToolPopover === 'align' ? 'none' : 'align');
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isP) {
+      } else if (!e.ctrlKey && !e.metaKey && !isAlt && isP) {
         e.preventDefault();
         setActiveToolPopover(activeToolPopover === 'pivot' ? 'none' : 'pivot');
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isM) {
+      } else if (!e.ctrlKey && !e.metaKey && !isAlt && isM) {
         e.preventDefault();
         setActiveToolPopover(activeToolPopover === 'miter' ? 'none' : 'miter');
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isK) {
+      } else if (!e.ctrlKey && !e.metaKey && !isAlt && isK) {
         e.preventDefault();
         setActiveToolPopover(
           activeToolPopover === 'pocket' ? 'none' : 'pocket'
         );
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && isS) {
+      } else if (!e.ctrlKey && !e.metaKey && !isAlt && isS) {
         e.preventDefault();
         setSnapEnabled(!snapEnabled);
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Digit1') {
@@ -193,31 +226,39 @@ export const App: React.FC = () => {
         const step = e.shiftKey ? baseStep * 10 : baseStep;
         moveSelectedDelta([0, e.key === 'PageUp' ? step : -step, 0]);
       } else if (
-        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) ||
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)
       ) {
         e.preventDefault();
+        e.stopPropagation();
         // Shift = 1mm fine control, normal = gridSnapStepMm (default 5mm)
         const baseStep = Math.max(1, gridSnapStepMm);
         const step = e.shiftKey ? 1 : baseStep;
 
-        if (e.key === 'ArrowUp') {
-          // Up = +Y axis
+        if (e.key === 'ArrowUp' || e.code === 'ArrowUp') {
+          // Up = +Y axis (Black vertical axis)
           moveSelectedDelta([0, step, 0]);
-        } else if (e.key === 'ArrowDown') {
-          // Down = -Y axis
+        } else if (e.key === 'ArrowDown' || e.code === 'ArrowDown') {
+          // Down = -Y axis (Black vertical axis)
           moveSelectedDelta([0, -step, 0]);
-        } else if (e.key === 'ArrowRight') {
-          // Alt + Right = +Z axis, Right = +X axis
-          moveSelectedDelta(e.altKey ? [0, 0, step] : [step, 0, 0]);
-        } else if (e.key === 'ArrowLeft') {
-          // Alt + Left = -Z axis, Left = -X axis
-          moveSelectedDelta(e.altKey ? [0, 0, -step] : [-step, 0, 0]);
+        } else if (e.key === 'ArrowRight' || e.code === 'ArrowRight') {
+          // Alt + Right = +Z axis (Red axis), Right = +X axis (Blue axis)
+          moveSelectedDelta(isAlt ? [0, 0, step] : [step, 0, 0]);
+        } else if (e.key === 'ArrowLeft' || e.code === 'ArrowLeft') {
+          // Alt + Left = -Z axis (Red axis), Left = -X axis (Blue axis)
+          moveSelectedDelta(isAlt ? [0, 0, -step] : [-step, 0, 0]);
         }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    window.addEventListener('keyup', handleKeyUp, { capture: true });
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      window.removeEventListener('keyup', handleKeyUp, { capture: true });
+      window.removeEventListener('blur', handleBlur);
+    };
   }, [
     undo,
     redo,

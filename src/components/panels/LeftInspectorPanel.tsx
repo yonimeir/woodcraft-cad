@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { STOCK_LIBRARY, getStockById } from '../../data/stockLibrary';
 import {
+  buildSelectedAlignUnits,
   calculateKregRecommendation,
   detectPartCollisions,
   getPartWorldBounds,
@@ -33,7 +34,10 @@ export const LeftInspectorPanel: React.FC = () => {
   const [cardCollapsed, setCardCollapsed] = useState(false);
 
   const parts = useProjectStore((s) => s.parts);
+  const groups = useProjectStore((s) => s.groups);
   const selectedIds = useProjectStore((s) => s.selectedIds);
+  const alignKeyUnitId = useProjectStore((s) => s.alignKeyUnitId);
+  const setAlignKeyUnitId = useProjectStore((s) => s.setAlignKeyUnitId);
   const partEditMode = useProjectStore((s) => s.partEditMode);
   const setPartEditMode = useProjectStore((s) => s.setPartEditMode);
   const activeToolPopover = useProjectStore((s) => s.activeToolPopover);
@@ -91,6 +95,20 @@ export const LeftInspectorPanel: React.FC = () => {
       (c) => c.partAId === selectedPart.id || c.partBId === selectedPart.id
     );
   }, [allCollisions, selectedPart]);
+
+  const alignUnits = useMemo(
+    () => buildSelectedAlignUnits(parts, groups, selectedIds),
+    [parts, groups, selectedIds]
+  );
+
+  const activeSelectedGroup = useMemo(() => {
+    if (!selectedPart?.groupId || selectedIds.length <= 1) return null;
+    const grp = groups.find((g) => g.id === selectedPart.groupId);
+    const allInSameGroup = selectedIds.every(
+      (id) => parts.find((p) => p.id === id)?.groupId === selectedPart.groupId
+    );
+    return allInSameGroup ? grp || null : null;
+  }, [selectedPart, selectedIds, groups, parts]);
 
   // If nothing is selected and no tool popover is open, render NOTHING so the 3D canvas is 100% clean!
   if (!selectedPart && activeToolPopover === 'none') {
@@ -154,9 +172,52 @@ export const LeftInspectorPanel: React.FC = () => {
             </button>
           </div>
 
-          {/* TOOL 1: ILLUSTRATOR-STYLE ALIGNMENT & DISTRIBUTION */}
+          {/* TOOL 1: ILLUSTRATOR-STYLE ALIGNMENT & DISTRIBUTION (WITH KEY OBJECT / "קורת אם" & GROUPS AS 1 UNIT) */}
           {activeToolPopover === 'align' && (
             <div className="space-y-2.5">
+              {/* Illustrator "Align to Key Object" ("קורת אם / יחידת אם") selector */}
+              {alignUnits.length >= 2 ? (
+                <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-700">
+                      קורת אם (עוגן יישור):
+                    </span>
+                    {alignKeyUnitId && (
+                      <button
+                        type="button"
+                        onClick={() => setAlignKeyUnitId(null)}
+                        className="text-[10px] font-bold text-amber-600 hover:underline cursor-pointer"
+                      >
+                        לפי כל הבחירה
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    value={alignKeyUnitId || ''}
+                    onChange={(e) =>
+                      setAlignKeyUnitId(e.target.value ? e.target.value : null)
+                    }
+                    className="w-full bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 outline-none cursor-pointer"
+                  >
+                    <option value="">לפי תיבת הבחירה כולה ({alignUnits.length} יחידות)</option>
+                    {alignUnits.map((u) => (
+                      <option key={u.unitId} value={u.unitId}>
+                        📌 קורת אם: {u.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-[10px] text-slate-500 leading-tight">
+                    {alignKeyUnitId
+                      ? 'קורת האם תישאר במקומה והשאר יתיישרו אליה (ניתן גם ללחוץ על קורה נבחרת ב-3D)'
+                      : 'טיפ: בחר קורת אם מהרשימה (או לחץ עליה ב-3D) כדי שתישאר קבועה במקומה'}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-500">
+                  החזק <kbd className="px-1 bg-white border rounded font-mono">Shift</kbd> ובחר 2 קורות/קבוצות או יותר ליישור לפי קורת אם
+                </div>
+              )}
+
               {(
                 [
                   {
@@ -185,7 +246,11 @@ export const LeftInspectorPanel: React.FC = () => {
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'min')}
                       className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
-                      title="יישר לקצה התחלתי"
+                      title={
+                        alignKeyUnitId
+                          ? 'יישר לקצה התחלתי של קורת האם'
+                          : 'יישר לקצה התחלתי'
+                      }
                     >
                       <IconAlignStart size={16} />
                     </button>
@@ -193,7 +258,11 @@ export const LeftInspectorPanel: React.FC = () => {
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'center')}
                       className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
-                      title="יישר למרכז"
+                      title={
+                        alignKeyUnitId
+                          ? 'יישר למרכז קורת האם'
+                          : 'יישר למרכז'
+                      }
                     >
                       <IconAlignCenter size={16} />
                     </button>
@@ -201,7 +270,11 @@ export const LeftInspectorPanel: React.FC = () => {
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'max')}
                       className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
-                      title="יישר לקצה סופי"
+                      title={
+                        alignKeyUnitId
+                          ? 'יישר לקצה סופי של קורת האם'
+                          : 'יישר לקצה סופי'
+                      }
                     >
                       <IconAlignEnd size={16} />
                     </button>
@@ -209,11 +282,31 @@ export const LeftInspectorPanel: React.FC = () => {
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'distribute')}
                       className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
-                      title="פזר במרווחים שווים (ל-3 חלקים ומעלה)"
+                      title="פזר במרווחים שווים (ל-3 יחידות ומעלה)"
                     >
                       <IconDistributeEvenly size={16} />
                     </button>
                   </div>
+                  {alignKeyUnitId && alignUnits.length >= 2 && (
+                    <div className="grid grid-cols-2 gap-1 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => alignSelectedParts(axis, 'butt-min')}
+                        className="py-1 bg-amber-50 hover:bg-amber-500 text-amber-900 hover:text-white border border-amber-200 rounded-md text-[10px] font-bold cursor-pointer transition"
+                        title="הצמד לדופן ההתחלתית של קורת האם (Butt Joint)"
+                      >
+                        הצמד לדופן -
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => alignSelectedParts(axis, 'butt-max')}
+                        className="py-1 bg-amber-50 hover:bg-amber-500 text-amber-900 hover:text-white border border-amber-200 rounded-md text-[10px] font-bold cursor-pointer transition"
+                        title="הצמד לדופן הסופית של קורת האם (Butt Joint)"
+                      >
+                        הצמד לדופן +
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -962,6 +1055,20 @@ export const LeftInspectorPanel: React.FC = () => {
 
           {!cardCollapsed && (
             <div className="p-2.5 space-y-2.5">
+              {/* Group Unit Banner when an entire Group is selected */}
+              {activeSelectedGroup && (
+                <div className="px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between gap-1">
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-amber-900 truncate">
+                      קבוצה: {activeSelectedGroup.name} ({selectedIds.length})
+                    </div>
+                    <div className="text-[9px] text-amber-700">
+                      מתפקדת כיחידה אחת (Alt+קליק לקורה בודדת)
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Mode Indicator: Single-Click (Move) vs Double-Click (Dimensions) */}
               <div className="grid grid-cols-2 gap-1 bg-slate-100 p-0.5 rounded-lg">
                 <button

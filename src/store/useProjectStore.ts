@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as THREE from 'three';
 import {
   CutOptimizerSettings,
   Part,
@@ -14,13 +15,17 @@ import { STARTER_TEMPLATES } from '../data/starterTemplates';
 import { sanitizeAndAuditGeneratedModel } from '../utils/aiProductGenerator';
 import { renderAndValidateMultiAngle } from '../utils/visualMultiAngleValidator';
 import {
+  buildSelectedAlignUnits,
   computeBisectingMiterJoint,
   computeSmartSnap,
   computeWorldAxisRotation,
+  degToRad,
   detectPartCollisions,
   getPartQuaternion,
   getPartWorldBounds,
+  getPivotWorldPosition,
   resolvePartLengths,
+  rotateAssemblyAroundWorldPoint,
   rotatePartAroundPivot,
 } from '../utils/geometryAndEngineering';
 
@@ -68,6 +73,7 @@ interface ProjectState {
   parts: Part[];
   groups: PartGroup[];
   selectedIds: string[];
+  alignKeyUnitId: string | null;
   partEditMode: PartEditMode;
   activeToolPopover: ToolPopoverType;
   activeNotePartId: string | null;
@@ -110,7 +116,8 @@ interface ProjectState {
   undo: () => void;
   redo: () => void;
 
-  selectPart: (id: string | null, multi?: boolean) => void;
+  selectPart: (id: string | null, multi?: boolean, isolateSingle?: boolean) => void;
+  setAlignKeyUnitId: (unitId: string | null) => void;
   selectAll: () => void;
   selectGroup: (groupId: string) => void;
   cycleSelectPart: (direction?: 1 | -1) => void;
@@ -156,7 +163,7 @@ interface ProjectState {
   ungroup: (groupId: string) => void;
   alignSelectedParts: (
     axis: 'x' | 'y' | 'z',
-    mode: 'min' | 'center' | 'max' | 'distribute'
+    mode: 'min' | 'center' | 'max' | 'distribute' | 'butt-min' | 'butt-max'
   ) => void;
   renameGroup: (groupId: string, name: string) => void;
   toggleGroupVisibility: (groupId: string) => void;
@@ -309,6 +316,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   parts: initial.parts,
   groups: initial.groups,
   selectedIds: [],
+  alignKeyUnitId: null,
   partEditMode: 'move',
   activeToolPopover: 'none',
   activeNotePartId: null,
@@ -406,22 +414,58 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     saveToLocalStorage({ ...get(), parts: next.parts, groups: next.groups });
   },
 
-  selectPart: (id, multi = false) => {
+  selectPart: (id, multi = false, isolateSingle = false) => {
     if (!id) {
-      set({ selectedIds: [], partEditMode: 'move', activeToolPopover: 'none' });
+      set({
+        selectedIds: [],
+        alignKeyUnitId: null,
+        partEditMode: 'move',
+        activeToolPopover: 'none',
+      });
       return;
     }
-    const { selectedIds } = get();
+    const { parts, selectedIds } = get();
+    const clickedPart = parts.find((p) => p.id === id);
+
+    // If part belongs to a group and Alt (`isolateSingle`) is NOT held, select/toggle the entire group as 1 unit!
+    const targetIds: string[] =
+      !isolateSingle && clickedPart?.groupId
+        ? [
+            id,
+            ...parts
+              .filter(
+                (p) =>
+                  p.groupId === clickedPart.groupId && p.visible && p.id !== id
+              )
+              .map((p) => p.id),
+          ]
+        : [id];
+
     if (multi) {
-      if (selectedIds.includes(id)) {
-        set({ selectedIds: selectedIds.filter((i) => i !== id), partEditMode: 'move' });
+      const alreadySelected = selectedIds.includes(id);
+      if (alreadySelected) {
+        const removeSet = new Set(targetIds);
+        set({
+          selectedIds: selectedIds.filter((i) => !removeSet.has(i)),
+          partEditMode: 'move',
+        });
       } else {
-        set({ selectedIds: [...selectedIds, id], partEditMode: 'move' });
+        const merged = [
+          ...selectedIds,
+          ...targetIds.filter((t) => !selectedIds.includes(t)),
+        ];
+        set({ selectedIds: merged, partEditMode: 'move' });
       }
     } else {
-      set({ selectedIds: [id], partEditMode: 'move' });
+      set({
+        selectedIds: targetIds,
+        alignKeyUnitId: null,
+        partEditMode: 'move',
+      });
     }
   },
+
+  setAlignKeyUnitId: (alignKeyUnitId) => set({ alignKeyUnitId }),
 
   selectAll: () => {
     const visibleUnlocked = get()
@@ -511,12 +555,36 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   rotatePartWithPivot: (id, newRotation, recordHistory = true) => {
-    const part = get().parts.find((p) => p.id === id);
+    const { parts, selectedIds } = get();
+    const part = parts.find((p) => p.id === id);
     if (!part || part.locked) return;
     if (recordHistory) get().pushHistory();
 
+    const movingIds = selectedIds.includes(id) ? selectedIds : [id];
+    const movingParts = parts.filter((p) => movingIds.includes(p.id) && !p.locked);
+
+    if (movingParts.length > 1) {
+      // Rotate the entire selected group/assembly as one rigid 3D unit around `part`'s pivot!
+      const qInit = getPartQuaternion(part.rotation);
+      const qTarget = getPartQuaternion(newRotation);
+      const qDelta = qTarget.clone().multiply(qInit.clone().invert()).normalize();
+      const pivotWorld = getPivotWorldPosition(part);
+      const updatesMap = rotateAssemblyAroundWorldPoint(
+        movingParts,
+        pivotWorld,
+        qDelta
+      );
+      const nextParts = parts.map((p) =>
+        updatesMap.has(p.id) ? { ...p, ...updatesMap.get(p.id)! } : p
+      );
+      set({ parts: nextParts });
+      get().validateAndCleanDados();
+      saveToLocalStorage({ ...get(), parts: get().parts });
+      return;
+    }
+
     const { position, rotation } = rotatePartAroundPivot(part, newRotation);
-    const nextParts = get().parts.map((p) =>
+    const nextParts = parts.map((p) =>
       p.id === id ? { ...p, position, rotation } : p
     );
     set({ parts: nextParts });
@@ -525,13 +593,43 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   rotatePartByWorldAxis: (id, axis, deltaDeg, recordHistory = true) => {
-    const part = get().parts.find((p) => p.id === id);
+    const { parts, selectedIds } = get();
+    const part = parts.find((p) => p.id === id);
     if (!part || part.locked) return;
     if (recordHistory) get().pushHistory();
 
+    const movingIds = selectedIds.includes(id) ? selectedIds : [id];
+    const movingParts = parts.filter((p) => movingIds.includes(p.id) && !p.locked);
+
+    if (movingParts.length > 1) {
+      const axisVec =
+        axis === 'x'
+          ? new THREE.Vector3(1, 0, 0)
+          : axis === 'y'
+          ? new THREE.Vector3(0, 1, 0)
+          : new THREE.Vector3(0, 0, 1);
+      const qDelta = new THREE.Quaternion().setFromAxisAngle(
+        axisVec,
+        degToRad(deltaDeg)
+      );
+      const pivotWorld = getPivotWorldPosition(part);
+      const updatesMap = rotateAssemblyAroundWorldPoint(
+        movingParts,
+        pivotWorld,
+        qDelta
+      );
+      const nextParts = parts.map((p) =>
+        updatesMap.has(p.id) ? { ...p, ...updatesMap.get(p.id)! } : p
+      );
+      set({ parts: nextParts });
+      get().validateAndCleanDados();
+      saveToLocalStorage({ ...get(), parts: get().parts });
+      return;
+    }
+
     const nextRot = computeWorldAxisRotation(part.rotation, axis, deltaDeg);
     const { position, rotation } = rotatePartAroundPivot(part, nextRot);
-    const nextParts = get().parts.map((p) =>
+    const nextParts = parts.map((p) =>
       p.id === id ? { ...p, position, rotation } : p
     );
     set({ parts: nextParts });
@@ -542,18 +640,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   rotateSelectedByWorldAxis: (axis, deltaDeg) => {
     const { parts, selectedIds } = get();
     if (selectedIds.length === 0) return;
-    get().pushHistory();
-
-    const nextParts = parts.map((p) => {
-      if (!selectedIds.includes(p.id) || p.locked) return p;
-      const nextRot = computeWorldAxisRotation(p.rotation, axis, deltaDeg);
-      const { position, rotation } = rotatePartAroundPivot(p, nextRot);
-      return { ...p, position, rotation };
-    });
-
-    set({ parts: nextParts });
-    get().validateAndCleanDados();
-    saveToLocalStorage({ ...get(), parts: nextParts });
+    const primary = parts.find((p) => p.id === selectedIds[0]);
+    if (!primary) return;
+    get().rotatePartByWorldAxis(primary.id, axis, deltaDeg, true);
   },
 
   stretchSelectedLengthDelta: (deltaMm) => {
@@ -686,13 +775,31 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       finalPos[2] - part.position[2],
     ];
 
+    // Clamp floor Y=0 across the entire moving assembly as a rigid unit so elevated group members never collapse
+    const movingParts = parts.filter((p) => movingIds.includes(p.id) && !p.locked);
+    let minAssemblyY = Infinity;
+    for (const mp of movingParts) {
+      const b = getPartWorldBounds({
+        ...mp,
+        position: [
+          mp.position[0] + delta[0],
+          mp.position[1] + delta[1],
+          mp.position[2] + delta[2],
+        ],
+      });
+      if (b.min[1] < minAssemblyY) minAssemblyY = b.min[1];
+    }
+    if (minAssemblyY < 0) {
+      delta[1] -= minAssemblyY;
+    }
+
     const nextParts = parts.map((p) => {
       if (movingIds.includes(p.id) && !p.locked) {
         return {
           ...p,
           position: [
             Math.round((p.position[0] + delta[0]) * 10) / 10,
-            Math.round(Math.max(5, p.position[1] + delta[1]) * 10) / 10,
+            Math.round((p.position[1] + delta[1]) * 10) / 10,
             Math.round((p.position[2] + delta[2]) * 10) / 10,
           ] as [number, number, number],
         };
@@ -708,20 +815,40 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   moveSelectedDelta: (delta, recordHistory = true) => {
     const { parts, selectedIds } = get();
     if (selectedIds.length === 0) return;
+    const movingParts = parts.filter(
+      (p) => selectedIds.includes(p.id) && !p.locked && p.visible
+    );
+    if (movingParts.length === 0) return;
     if (recordHistory) get().pushHistory();
+
+    // Clamp floor Y=0 across the entire selected assembly as a rigid body!
+    const effDelta: [number, number, number] = [...delta];
+    let minAssemblyY = Infinity;
+    for (const mp of movingParts) {
+      const b = getPartWorldBounds({
+        ...mp,
+        position: [
+          mp.position[0] + effDelta[0],
+          mp.position[1] + effDelta[1],
+          mp.position[2] + effDelta[2],
+        ],
+      });
+      if (b.min[1] < minAssemblyY) minAssemblyY = b.min[1];
+    }
+    if (minAssemblyY < 0) {
+      effDelta[1] -= minAssemblyY;
+    }
 
     const nextParts = parts.map((p) => {
       if (!selectedIds.includes(p.id) || p.locked) return p;
-      const candidate: [number, number, number] = [
-        Math.round((p.position[0] + delta[0]) * 10) / 10,
-        Math.round((p.position[1] + delta[1]) * 10) / 10,
-        Math.round((p.position[2] + delta[2]) * 10) / 10,
-      ];
-      const b = getPartWorldBounds({ ...p, position: candidate });
-      if (b.min[1] < 0) {
-        candidate[1] -= b.min[1];
-      }
-      return { ...p, position: candidate };
+      return {
+        ...p,
+        position: [
+          Math.round((p.position[0] + effDelta[0]) * 10) / 10,
+          Math.round((p.position[1] + effDelta[1]) * 10) / 10,
+          Math.round((p.position[2] + effDelta[2]) * 10) / 10,
+        ] as [number, number, number],
+      };
     });
 
     set({ parts: nextParts });
@@ -731,13 +858,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   dropSelectedToFloor: () => {
     const { parts, selectedIds } = get();
-    if (selectedIds.length === 0) return;
+    const movingParts = parts.filter(
+      (p) => selectedIds.includes(p.id) && !p.locked && p.visible
+    );
+    if (movingParts.length === 0) return;
     get().pushHistory();
+
+    // Find the lowest point across the entire selected group/assembly so it drops as 1 rigid unit!
+    let minAssemblyY = Infinity;
+    for (const mp of movingParts) {
+      const b = getPartWorldBounds(mp);
+      if (b.min[1] < minAssemblyY) minAssemblyY = b.min[1];
+    }
+    if (!Number.isFinite(minAssemblyY)) return;
 
     const nextParts = parts.map((p) => {
       if (!selectedIds.includes(p.id) || p.locked) return p;
-      const b = getPartWorldBounds(p);
-      const nextY = Math.round((p.position[1] - b.min[1]) * 10) / 10;
+      const nextY = Math.round((p.position[1] - minAssemblyY) * 10) / 10;
       return {
         ...p,
         position: [p.position[0], nextY, p.position[2]] as [number, number, number],
@@ -747,7 +884,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ parts: nextParts });
     get().validateAndCleanDados();
     saveToLocalStorage({ ...get(), parts: get().parts });
-    get().addToast('החלק הונח צמוד לרצפה (Y=0)', 'info');
+    get().addToast('הבחירה הונחה צמוד לרצפה (Y=0) כיחידה אחת', 'info');
   },
 
   copySelected: () => {
@@ -933,102 +1070,127 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   alignSelectedParts: (axis, mode) => {
-    const { parts, selectedIds } = get();
-    const selectedParts = parts.filter(
-      (p) => selectedIds.includes(p.id) && !p.locked && p.visible
-    );
-    if (selectedParts.length === 0) return;
+    const { parts, groups, selectedIds, alignKeyUnitId } = get();
+    const units = buildSelectedAlignUnits(parts, groups, selectedIds);
+    if (units.length === 0) return;
 
     get().pushHistory();
     const axisIdx = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
-    const boundsMap = new Map(
-      selectedParts.map((p) => [p.id, getPartWorldBounds(p)])
-    );
 
-    if (selectedParts.length === 1) {
-      // Single part: align to Workplane center (0) or floor (Y=0)
-      const p = selectedParts[0];
-      const b = boundsMap.get(p.id)!;
-      const nextPos: [number, number, number] = [...p.position];
+    if (units.length === 1) {
+      // Single unit (single beam OR single entire group): align as 1 rigid unit to Workplane center (0) or floor (Y=0)
+      const u = units[0];
+      let delta = 0;
       if (axis === 'y' && mode === 'min') {
-        nextPos[1] = Math.round((p.position[1] - b.min[1]) * 10) / 10;
+        delta = -u.bounds.min[1];
       } else if (mode === 'center') {
-        nextPos[axisIdx] = 0;
+        delta = -u.bounds.center[axisIdx];
       }
-      const nextParts = parts.map((item) =>
-        item.id === p.id ? { ...item, position: nextPos } : item
-      );
+      const memberSet = new Set(u.memberIds);
+      const nextParts = parts.map((item) => {
+        if (!memberSet.has(item.id)) return item;
+        const np: [number, number, number] = [...item.position];
+        np[axisIdx] = Math.round((np[axisIdx] + delta) * 10) / 10;
+        return { ...item, position: np };
+      });
       set({ parts: nextParts });
       get().validateAndCleanDados();
       saveToLocalStorage({ ...get(), parts: nextParts });
-      get().addToast('החלק יושר למרכז משטח העבודה', 'success');
+      get().addToast('היחידה יושרה למרכז משטח העבודה', 'success');
       return;
     }
 
-    // Multiple selected parts: Illustrator-style Align or Distribute
-    let minCoord = Infinity;
-    let maxCoord = -Infinity;
-    for (const p of selectedParts) {
-      const b = boundsMap.get(p.id)!;
-      if (b.min[axisIdx] < minCoord) minCoord = b.min[axisIdx];
-      if (b.max[axisIdx] > maxCoord) maxCoord = b.max[axisIdx];
-    }
-    const midCoord = (minCoord + maxCoord) / 2;
-
     if (mode === 'distribute') {
-      if (selectedParts.length < 3) {
-        get().addToast('בחר לפחות 3 חלקים לפיזור במרווחים שווים', 'info');
+      if (units.length < 3) {
+        get().addToast('בחר לפחות 3 יחידות (קורות או קבוצות) לפיזור במרווחים שווים', 'info');
         return;
       }
-      const sorted = [...selectedParts].sort(
-        (a, b) =>
-          boundsMap.get(a.id)!.center[axisIdx] -
-          boundsMap.get(b.id)!.center[axisIdx]
+      const sorted = [...units].sort(
+        (a, b) => a.bounds.center[axisIdx] - b.bounds.center[axisIdx]
       );
-      const firstB = boundsMap.get(sorted[0].id)!;
-      const lastB = boundsMap.get(sorted[sorted.length - 1].id)!;
+      const firstB = sorted[0].bounds;
+      const lastB = sorted[sorted.length - 1].bounds;
       const totalSpan = lastB.min[axisIdx] - firstB.max[axisIdx];
       const innerThicknessSum = sorted
         .slice(1, -1)
-        .reduce((acc, p) => acc + boundsMap.get(p.id)!.size[axisIdx], 0);
+        .reduce((acc, u) => acc + u.bounds.size[axisIdx], 0);
       const gap = (totalSpan - innerThicknessSum) / (sorted.length - 1);
 
       let cursor = firstB.max[axisIdx] + gap;
-      const newPosById = new Map<string, [number, number, number]>();
+      const deltaByPartId = new Map<string, number>();
       for (let i = 1; i < sorted.length - 1; i++) {
-        const p = sorted[i];
-        const b = boundsMap.get(p.id)!;
-        const targetCenter = cursor + b.size[axisIdx] / 2;
-        const delta = targetCenter - b.center[axisIdx];
-        const np: [number, number, number] = [...p.position];
-        np[axisIdx] = Math.round((np[axisIdx] + delta) * 10) / 10;
-        newPosById.set(p.id, np);
-        cursor += b.size[axisIdx] + gap;
+        const u = sorted[i];
+        const targetCenter = cursor + u.bounds.size[axisIdx] / 2;
+        const delta = targetCenter - u.bounds.center[axisIdx];
+        for (const pid of u.memberIds) {
+          deltaByPartId.set(pid, delta);
+        }
+        cursor += u.bounds.size[axisIdx] + gap;
       }
 
-      const nextParts = parts.map((p) =>
-        newPosById.has(p.id) ? { ...p, position: newPosById.get(p.id)! } : p
-      );
+      const nextParts = parts.map((p) => {
+        if (!deltaByPartId.has(p.id)) return p;
+        const np: [number, number, number] = [...p.position];
+        np[axisIdx] = Math.round((np[axisIdx] + deltaByPartId.get(p.id)!) * 10) / 10;
+        return { ...p, position: np };
+      });
       set({ parts: nextParts });
       get().validateAndCleanDados();
       saveToLocalStorage({ ...get(), parts: nextParts });
       get().addToast(
-        `החלקים פוזרו במרווח שווה בציר ${axis.toUpperCase()}`,
+        `היחידות פוזרו במרווח שווה בציר ${axis.toUpperCase()}`,
         'success'
       );
       return;
     }
 
-    const nextParts = parts.map((p) => {
-      if (!boundsMap.has(p.id)) return p;
-      const b = boundsMap.get(p.id)!;
-      let delta = 0;
-      if (mode === 'min') delta = minCoord - b.min[axisIdx];
-      else if (mode === 'max') delta = maxCoord - b.max[axisIdx];
-      else if (mode === 'center') delta = midCoord - b.center[axisIdx];
+    // Illustrator-style Key Object ("קורת אם / יחידת אם") vs Selection Bounding Box
+    const keyUnit = alignKeyUnitId
+      ? units.find((u) => u.unitId === alignKeyUnitId)
+      : undefined;
 
+    let minCoord = Infinity;
+    let maxCoord = -Infinity;
+    for (const u of units) {
+      if (u.bounds.min[axisIdx] < minCoord) minCoord = u.bounds.min[axisIdx];
+      if (u.bounds.max[axisIdx] > maxCoord) maxCoord = u.bounds.max[axisIdx];
+    }
+    const midCoord = (minCoord + maxCoord) / 2;
+
+    const deltaByPartId = new Map<string, number>();
+
+    for (const u of units) {
+      if (keyUnit && u.unitId === keyUnit.unitId) {
+        // Key Object stays 100% stationary!
+        for (const pid of u.memberIds) deltaByPartId.set(pid, 0);
+        continue;
+      }
+
+      let delta = 0;
+      if (keyUnit) {
+        // Align / butt directly to Key Object ("קורת אם")
+        if (mode === 'min') delta = keyUnit.bounds.min[axisIdx] - u.bounds.min[axisIdx];
+        else if (mode === 'max') delta = keyUnit.bounds.max[axisIdx] - u.bounds.max[axisIdx];
+        else if (mode === 'center') delta = keyUnit.bounds.center[axisIdx] - u.bounds.center[axisIdx];
+        else if (mode === 'butt-min') delta = keyUnit.bounds.min[axisIdx] - u.bounds.max[axisIdx];
+        else if (mode === 'butt-max') delta = keyUnit.bounds.max[axisIdx] - u.bounds.min[axisIdx];
+      } else {
+        // Align to overall selection bounds
+        if (mode === 'min' || mode === 'butt-min') delta = minCoord - u.bounds.min[axisIdx];
+        else if (mode === 'max' || mode === 'butt-max') delta = maxCoord - u.bounds.max[axisIdx];
+        else if (mode === 'center') delta = midCoord - u.bounds.center[axisIdx];
+      }
+
+      for (const pid of u.memberIds) {
+        deltaByPartId.set(pid, delta);
+      }
+    }
+
+    const nextParts = parts.map((p) => {
+      if (!deltaByPartId.has(p.id)) return p;
+      const d = deltaByPartId.get(p.id)!;
       const np: [number, number, number] = [...p.position];
-      np[axisIdx] = Math.round((np[axisIdx] + delta) * 10) / 10;
+      np[axisIdx] = Math.round((np[axisIdx] + d) * 10) / 10;
       return { ...p, position: np };
     });
 
@@ -1036,7 +1198,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     get().validateAndCleanDados();
     saveToLocalStorage({ ...get(), parts: nextParts });
     get().addToast(
-      `יושרו ${selectedParts.length} חלקים בציר ${axis.toUpperCase()}`,
+      keyUnit
+        ? `יושר לפי "${keyUnit.label}" בציר ${axis.toUpperCase()}`
+        : `יושרו ${units.length} יחידות בציר ${axis.toUpperCase()}`,
       'success'
     );
   },

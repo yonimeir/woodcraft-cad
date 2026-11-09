@@ -3,6 +3,7 @@ import {
   CollisionPair,
   KregRecommendation,
   Part,
+  PartGroup,
   PivotAnchor,
   RoomEnvironment,
   SnapLine,
@@ -219,6 +220,175 @@ export function rotatePartAroundPivot(
     position: nextPos,
     rotation: nextRotation,
   };
+}
+
+/**
+ * Rotates a group or multi-selection of parts as a single rigid 3D assembly around a world pivot point.
+ * Keeps all internal relative positions and angles intact, and clamps the assembly above the floor (Y=0).
+ */
+export function rotateAssemblyAroundWorldPoint(
+  assemblyParts: Part[],
+  pivotWorldPos: [number, number, number],
+  qDelta: THREE.Quaternion
+): Map<string, { position: [number, number, number]; rotation: [number, number, number] }> {
+  const pivotVec = new THREE.Vector3(...pivotWorldPos);
+  const normDeg = (rad: number) => {
+    let d = Math.round(radToDeg(rad) * 10) / 10;
+    d = ((d % 360) + 360) % 360;
+    for (const c of [0, 90, 180, 270, 360]) {
+      if (Math.abs(d - c) < 0.15) {
+        return c === 360 ? 0 : c;
+      }
+    }
+    return d;
+  };
+
+  const tempUpdated: Part[] = assemblyParts.map((p) => {
+    const qInit = getPartQuaternion(p.rotation);
+    const qFinal = qDelta.clone().multiply(qInit).normalize();
+    const euler = new THREE.Euler().setFromQuaternion(qFinal, 'XYZ');
+    const nextRotation: [number, number, number] = [
+      normDeg(euler.x),
+      normDeg(euler.y),
+      normDeg(euler.z),
+    ];
+
+    const offset = new THREE.Vector3(...p.position).sub(pivotVec);
+    offset.applyQuaternion(qDelta);
+    const newCenter = pivotVec.clone().add(offset);
+
+    return {
+      ...p,
+      position: [
+        Math.round(newCenter.x * 10) / 10,
+        Math.round(newCenter.y * 10) / 10,
+        Math.round(newCenter.z * 10) / 10,
+      ],
+      rotation: nextRotation,
+    };
+  });
+
+  // Clamp the entire assembly above floor Y=0 as a rigid unit
+  let minFloorY = Infinity;
+  for (const tp of tempUpdated) {
+    const b = getPartWorldBounds(tp);
+    if (b.min[1] < minFloorY) {
+      minFloorY = b.min[1];
+    }
+  }
+  const liftY = minFloorY < 0 ? -minFloorY : 0;
+
+  const result = new Map<
+    string,
+    { position: [number, number, number]; rotation: [number, number, number] }
+  >();
+  for (const tp of tempUpdated) {
+    result.set(tp.id, {
+      position: [
+        tp.position[0],
+        Math.round((tp.position[1] + liftY) * 10) / 10,
+        tp.position[2],
+      ],
+      rotation: tp.rotation,
+    });
+  }
+  return result;
+}
+
+export interface AlignUnit {
+  unitId: string;
+  label: string;
+  isGroup: boolean;
+  memberIds: string[];
+  bounds: {
+    min: [number, number, number];
+    max: [number, number, number];
+    center: [number, number, number];
+    size: [number, number, number];
+  };
+}
+
+/**
+ * Partitions selected parts into unified Alignment Units (`AlignUnit[]`):
+ * - Parts belonging to the same `groupId` (when >1 member is selected) form a single rigid `AlignUnit`
+ *   with combined world bounds so groups align and distribute as one intact unit.
+ * - Individual ungrouped (or Alt-isolated) parts form their own `AlignUnit`.
+ */
+export function buildSelectedAlignUnits(
+  parts: Part[],
+  groups: PartGroup[],
+  selectedIds: string[]
+): AlignUnit[] {
+  const selectedParts = parts.filter(
+    (p) => selectedIds.includes(p.id) && p.visible && !p.locked
+  );
+  if (selectedParts.length === 0) return [];
+
+  // Count how many selected parts belong to each groupId
+  const groupCounts = new Map<string, Part[]>();
+  for (const p of selectedParts) {
+    if (p.groupId) {
+      const list = groupCounts.get(p.groupId) || [];
+      list.push(p);
+      groupCounts.set(p.groupId, list);
+    }
+  }
+
+  const units: AlignUnit[] = [];
+  const handledGroupIds = new Set<string>();
+
+  for (const p of selectedParts) {
+    if (p.groupId && (groupCounts.get(p.groupId)?.length || 0) > 1) {
+      if (handledGroupIds.has(p.groupId)) continue;
+      handledGroupIds.add(p.groupId);
+
+      const members = groupCounts.get(p.groupId)!;
+      const grp = groups.find((g) => g.id === p.groupId);
+      const min: [number, number, number] = [Infinity, Infinity, Infinity];
+      const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+
+      for (const m of members) {
+        const b = getPartWorldBounds(m);
+        for (let k = 0; k < 3; k++) {
+          if (b.min[k] < min[k]) min[k] = b.min[k];
+          if (b.max[k] > max[k]) max[k] = b.max[k];
+        }
+      }
+
+      units.push({
+        unitId: `group:${p.groupId}`,
+        label: grp ? `קבוצה: ${grp.name}` : 'קבוצה',
+        isGroup: true,
+        memberIds: members.map((m) => m.id),
+        bounds: {
+          min,
+          max,
+          center: [
+            (min[0] + max[0]) / 2,
+            (min[1] + max[1]) / 2,
+            (min[2] + max[2]) / 2,
+          ],
+          size: [max[0] - min[0], max[1] - min[1], max[2] - min[2]],
+        },
+      });
+    } else {
+      const b = getPartWorldBounds(p);
+      units.push({
+        unitId: `part:${p.id}`,
+        label: p.name,
+        isGroup: false,
+        memberIds: [p.id],
+        bounds: {
+          min: b.min,
+          max: b.max,
+          center: b.center,
+          size: b.size,
+        },
+      });
+    }
+  }
+
+  return units;
 }
 
 /**

@@ -35,6 +35,9 @@ export const WoodPartMesh: React.FC<Props> = ({
   const { camera, raycaster, pointer } = useThree();
   const selectedIds = useProjectStore((s) => s.selectedIds);
   const selectPart = useProjectStore((s) => s.selectPart);
+  const alignKeyUnitId = useProjectStore((s) => s.alignKeyUnitId);
+  const setAlignKeyUnitId = useProjectStore((s) => s.setAlignKeyUnitId);
+  const activeToolPopover = useProjectStore((s) => s.activeToolPopover);
   const setPartEditMode = useProjectStore((s) => s.setPartEditMode);
   const activeNotePartId = useProjectStore((s) => s.activeNotePartId);
   const setActiveNotePartId = useProjectStore((s) => s.setActiveNotePartId);
@@ -86,7 +89,15 @@ export const WoodPartMesh: React.FC<Props> = ({
     loadWarning &&
     (loadWarning.severity === 'critical' || loadWarning.severity === 'warning');
 
-  const edgeColor = isSelected
+  const isAlignKeyUnit =
+    isSelected &&
+    alignKeyUnitId !== null &&
+    (alignKeyUnitId === `part:${part.id}` ||
+      (part.groupId !== null && alignKeyUnitId === `group:${part.groupId}`));
+
+  const edgeColor = isAlignKeyUnit
+    ? '#d97706'
+    : isSelected
     ? '#0284c7'
     : hasSevereLoad
     ? '#ef4444'
@@ -115,10 +126,40 @@ export const WoodPartMesh: React.FC<Props> = ({
 
     e.stopPropagation();
     const isMulti = e.ctrlKey || e.metaKey || e.shiftKey;
+    const isIsolateSingle =
+      e.altKey ||
+      e.nativeEvent?.getModifierState?.('Alt') ||
+      e.nativeEvent?.getModifierState?.('AltGraph');
 
     if (isMulti) {
-      selectPart(part.id, true);
+      selectPart(part.id, true, isIsolateSingle);
       return;
+    }
+
+    // If the part belongs to a group and all group members are selected, clicking another member with Alt isolates that single beam!
+    if (isIsolateSingle && part.groupId) {
+      selectPart(part.id, false, true);
+      return;
+    }
+
+    // Illustrator Key Object behavior: When the Align popover is open and multiple items are selected,
+    // clicking an already-selected beam/group designates it as the Key Object ("קורת אם / יחידת אם")!
+    if (
+      activeToolPopover === 'align' &&
+      selectedIds.length > 1 &&
+      selectedIds.includes(part.id)
+    ) {
+      const groupedPeersSelected =
+        part.groupId &&
+        allParts.filter(
+          (p) => p.groupId === part.groupId && selectedIds.includes(p.id)
+        ).length > 1;
+      const targetUnitId = groupedPeersSelected
+        ? `group:${part.groupId}`
+        : `part:${part.id}`;
+      setAlignKeyUnitId(
+        alignKeyUnitId === targetUnitId ? null : targetUnitId
+      );
     }
 
     // 2. Deselect-First Rule: If another part is currently selected, clicking outside it
@@ -129,9 +170,9 @@ export const WoodPartMesh: React.FC<Props> = ({
       return;
     }
 
-    // 3. Single-click selects this part in 'move' mode (unless already in 'dimensions' mode on this part)
+    // 3. Single-click selects this part (or its entire group unless Alt is held) in 'move' mode
     if (!selectedIds.includes(part.id)) {
-      selectPart(part.id, false);
+      selectPart(part.id, false, isIsolateSingle);
     }
 
     if (part.locked) return;
