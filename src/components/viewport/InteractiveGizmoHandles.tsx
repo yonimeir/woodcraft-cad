@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useThree } from '@react-three/fiber';
-import { Html, Line } from '@react-three/drei';
+import { ThreeEvent, useThree } from '@react-three/fiber';
+import { Edges, Html, Line } from '@react-three/drei';
 import { Part } from '../../types/woodcraft';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getStockById } from '../../data/stockLibrary';
@@ -50,23 +50,69 @@ type DragState =
       plane: THREE.Plane;
     };
 
-/** Crisp SVG Double-Headed Curved Rotation Arrow Icon */
-const CurvedRotateSvg: React.FC = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M4 15C4 9.5 8.5 5 14 5H19" />
-    <path d="M16 2L19.5 5L16 8" />
-    <path d="M1 12L4 15.5L7 12" />
-  </svg>
-);
+/**
+ * Builds a Tinkercad-style 3D flat double-headed curved arrow geometry in the XY plane,
+ * centered around angle = 0 (from -halfSpan to +halfSpan with pointed arrowheads at both ends).
+ */
+function createCurvedDoubleArrowGeometry(
+  radius: number,
+  bandThickness: number,
+  halfSpanRad = 0.46,
+  headLengthRad = 0.22,
+  headWidthMultiplier = 2.35
+): THREE.ShapeGeometry {
+  const rIn = radius - bandThickness / 2;
+  const rOut = radius + bandThickness / 2;
+  const rHeadIn = radius - (bandThickness * headWidthMultiplier) / 2;
+  const rHeadOut = radius + (bandThickness * headWidthMultiplier) / 2;
+  const tipAngle = halfSpanRad + headLengthRad;
+  const segs = 24;
+
+  const shape = new THREE.Shape();
+
+  // 1. Start at +tipAngle arrowhead point
+  shape.moveTo(Math.cos(tipAngle) * radius, Math.sin(tipAngle) * radius);
+
+  // 2. Outer shoulder of +arrowhead -> outer arc start
+  shape.lineTo(
+    Math.cos(halfSpanRad) * rHeadOut,
+    Math.sin(halfSpanRad) * rHeadOut
+  );
+  shape.lineTo(Math.cos(halfSpanRad) * rOut, Math.sin(halfSpanRad) * rOut);
+
+  // 3. Trace outer arc from +halfSpanRad down to -halfSpanRad
+  for (let i = 1; i <= segs; i++) {
+    const a = halfSpanRad - (2 * halfSpanRad * i) / segs;
+    shape.lineTo(Math.cos(a) * rOut, Math.sin(a) * rOut);
+  }
+
+  // 4. Outer shoulder of -arrowhead -> -tipAngle point -> inner shoulder
+  shape.lineTo(
+    Math.cos(-halfSpanRad) * rHeadOut,
+    Math.sin(-halfSpanRad) * rHeadOut
+  );
+  shape.lineTo(Math.cos(-tipAngle) * radius, Math.sin(-tipAngle) * radius);
+  shape.lineTo(
+    Math.cos(-halfSpanRad) * rHeadIn,
+    Math.sin(-halfSpanRad) * rHeadIn
+  );
+  shape.lineTo(Math.cos(-halfSpanRad) * rIn, Math.sin(-halfSpanRad) * rIn);
+
+  // 5. Trace inner arc from -halfSpanRad back up to +halfSpanRad
+  for (let i = 1; i <= segs; i++) {
+    const a = -halfSpanRad + (2 * halfSpanRad * i) / segs;
+    shape.lineTo(Math.cos(a) * rIn, Math.sin(a) * rIn);
+  }
+
+  // 6. Inner shoulder of +arrowhead -> close at +tipAngle
+  shape.lineTo(
+    Math.cos(halfSpanRad) * rHeadIn,
+    Math.sin(halfSpanRad) * rHeadIn
+  );
+  shape.closePath();
+
+  return new THREE.ShapeGeometry(shape, 12);
+}
 
 export const InteractiveGizmoHandles: React.FC<Props> = ({
   part,
@@ -112,6 +158,13 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
   const fmtVal = (mm: number) =>
     unitMode === 'cm' ? (mm / 10).toFixed(1) : `${Math.round(mm)}`;
   const unitSuffix = unitMode === 'cm' ? 'ס"מ' : 'מ"מ';
+
+  // Tinkercad-style 3D Double-Headed Curved Arrow Geometries (Visual + Wide Hit Area)
+  const arrowGeometries = useMemo(() => {
+    const visual = createCurvedDoubleArrowGeometry(62, 6.5, 0.46, 0.24, 2.4);
+    const hit = createCurvedDoubleArrowGeometry(62, 22, 0.55, 0.28, 1.5);
+    return { visual, hit };
+  }, []);
 
   const intersectPlaneAtClientXY = (
     plane: THREE.Plane,
@@ -249,57 +302,6 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     setOrbitEnabled,
   ]);
 
-  // Build smooth curved arc points outside the beam's bounding box for X (Blue), Y (Black), Z (Red)
-  const rotationArcs = useMemo(() => {
-    const r = 68;
-    const steps = 20;
-    const aStart = -Math.PI * 0.28;
-    const aEnd = Math.PI * 0.28;
-
-    // 1. X-Axis Arc (BLUE #2563eb): positioned outside +X end, curving in YZ plane
-    const xBase = bounds.size[0] / 2 + 40;
-    const xPts: Array<[number, number, number]> = [];
-    for (let i = 0; i <= steps; i++) {
-      const a = aStart + ((aEnd - aStart) * i) / steps;
-      xPts.push([xBase, Math.sin(a) * r, Math.cos(a) * r]);
-    }
-    const xMid: [number, number, number] = [xBase, 0, r];
-
-    // 2. Y-Axis Arc (BLACK #0f172a): positioned outside +X/+Z corner on horizontal plane, curving in XZ plane
-    const yBase = -bounds.size[1] / 2 + 4;
-    const cornerX = bounds.size[0] / 2 + 12;
-    const cornerZ = bounds.size[2] / 2 + 12;
-    const yPts: Array<[number, number, number]> = [];
-    for (let i = 0; i <= steps; i++) {
-      const a = 0.12 + ((Math.PI / 2 - 0.24) * i) / steps;
-      yPts.push([
-        cornerX + Math.cos(a) * r,
-        yBase,
-        cornerZ + Math.sin(a) * r,
-      ]);
-    }
-    const yMid: [number, number, number] = [
-      cornerX + Math.cos(Math.PI / 4) * r,
-      yBase,
-      cornerZ + Math.sin(Math.PI / 4) * r,
-    ];
-
-    // 3. Z-Axis Arc (RED #dc2626): positioned outside +Z front face, curving in XY plane
-    const zBase = bounds.size[2] / 2 + 40;
-    const zPts: Array<[number, number, number]> = [];
-    for (let i = 0; i <= steps; i++) {
-      const a = aStart + ((aEnd - aStart) * i) / steps;
-      zPts.push([Math.cos(a) * r, Math.sin(a) * r, zBase]);
-    }
-    const zMid: [number, number, number] = [r, 0, zBase];
-
-    return {
-      x: { points: xPts, mid: xMid, color: '#2563eb', label: 'X' },
-      y: { points: yPts, mid: yMid, color: '#0f172a', label: 'Y' },
-      z: { points: zPts, mid: zMid, color: '#dc2626', label: 'Z' },
-    };
-  }, [bounds.size]);
-
   if (part.locked || !part.visible) return null;
 
   // Start Y-Elevation drag from the Tinkercad top cone (Black = Y Axis)
@@ -387,13 +389,11 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
   };
 
   // Start rotating around X (Blue), Y (Black), or Z (Red) at the selected Anchor / Pivot Point
-  const startRotateAxisClient = (
+  const startRotateAxis = (
     axis: 'x' | 'y' | 'z',
-    clientX: number,
-    clientY: number,
-    stopEvt?: { stopPropagation: () => void }
+    e: ThreeEvent<PointerEvent>
   ) => {
-    stopEvt?.stopPropagation();
+    e.stopPropagation();
     setOrbitEnabled(false);
     pushHistory();
 
@@ -418,7 +418,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
       pivotVec
     );
     const hit =
-      intersectPlaneAtClientXY(plane, clientX, clientY) ||
+      intersectPlaneAtClientXY(plane, e.clientX, e.clientY) ||
       pivotVec.clone().add(uVec);
     const rel = hit.clone().sub(pivotVec);
     const startAngleRad = Math.atan2(rel.dot(vVec), rel.dot(uVec));
@@ -467,18 +467,23 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
     setEditingDim(null);
   };
 
-  const yConeOffset = bounds.size[1] / 2 + 56;
+  const yConeOffset = bounds.size[1] / 2 + 54;
   const heightFromFloorMm = Math.max(0, Math.round(bounds.min[1]));
+
+  // Positions for the 3 flat 3D Tinkercad Curved Double-Arrows strictly outside the bounding box
+  const halfBx = bounds.size[0] / 2;
+  const halfBy = bounds.size[1] / 2;
+  const halfBz = bounds.size[2] / 2;
 
   return (
     <group userData={{ isGizmoHandle: true }}>
       {/* =====================================================================
           STAGE 1: SINGLE-CLICK MODE ('move')
           - Black Y-Elevation Cone above part
-          - 3 Well-Separated Color-Coded Curved Rotation Arrows:
-            * X Axis = Blue (#2563eb)
-            * Y Axis = Black (#0f172a)
-            * Z Axis = Red (#dc2626)
+          - 3 True 3D Flat Double-Headed Curved Arrows (Tinkercad Style, NO HTML bubbles!):
+            * X Axis = Blue (#2563eb) in YZ plane outside +X end
+            * Y Axis = Black (#0f172a) in XZ floor plane outside front-right corner
+            * Z Axis = Red (#dc2626) in XY plane outside +Z front
           - Draggable Photoshop/Illustrator Pivot Reticle
          ===================================================================== */}
       {partEditMode === 'move' && (
@@ -488,11 +493,11 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
             {(heightFromFloorMm > 2 || dragState?.kind === 'translate-y') && (
               <Line
                 points={[
-                  [0, -bounds.size[1] / 2, 0],
+                  [0, -halfBy, 0],
                   [0, -part.position[1], 0],
                 ]}
                 color="#0f172a"
-                lineWidth={1.6}
+                lineWidth={1.5}
                 dashed
                 dashSize={12}
                 gapSize={10}
@@ -513,7 +518,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
             >
               <Line
                 points={[
-                  [0, bounds.size[1] / 2 + 6, 0],
+                  [0, halfBy + 6, 0],
                   [0, yConeOffset - 14, 0],
                 ]}
                 color={
@@ -521,7 +526,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                     ? '#f59e0b'
                     : '#0f172a'
                 }
-                lineWidth={2.2}
+                lineWidth={2}
                 depthTest={false}
                 renderOrder={999}
               />
@@ -530,7 +535,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                 renderOrder={999}
                 userData={{ isGizmoHandle: true }}
               >
-                <coneGeometry args={[13, 30, 20]} />
+                <coneGeometry args={[12, 28, 20]} />
                 <meshBasicMaterial
                   color={
                     coneHovered || dragState?.kind === 'translate-y'
@@ -550,72 +555,137 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
               </mesh>
             </group>
 
-            {/* 3 Color-Coded Curved Rotation Arrows Outside the Bounding Box:
-                X = Blue (#2563eb), Y = Black (#0f172a), Z = Red (#dc2626) */}
-            {(['x', 'y', 'z'] as const).map((axis) => {
-              const arc = rotationArcs[axis];
-              const isActive =
-                hoveredArc === axis ||
-                (dragState?.kind === 'rotate-axis' && dragState.axis === axis);
-              const startPt = arc.points[0];
-              const endPt = arc.points[arc.points.length - 1];
+            {/* 1. Y-AXIS CURVED DOUBLE-ARROW (BLACK #0f172a — Lies flat on horizontal XZ plane outside corner) */}
+            <group
+              position={[halfBx - 15, -halfBy + 2, halfBz - 15]}
+              rotation={[-Math.PI / 2, 0, -Math.PI / 4]}
+              userData={{ isGizmoHandle: true }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setHoveredArc('y');
+              }}
+              onPointerOut={() => setHoveredArc(null)}
+              onPointerDown={(e) => startRotateAxis('y', e)}
+            >
+              <mesh
+                geometry={arrowGeometries.visual}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <meshBasicMaterial
+                  color={
+                    hoveredArc === 'y' ||
+                    (dragState?.kind === 'rotate-axis' &&
+                      dragState.axis === 'y')
+                      ? '#f59e0b'
+                      : '#0f172a'
+                  }
+                  side={THREE.DoubleSide}
+                  depthTest={false}
+                />
+                <Edges color="#ffffff" threshold={15} />
+              </mesh>
+              <mesh
+                geometry={arrowGeometries.hit}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  side={THREE.DoubleSide}
+                  depthTest={false}
+                />
+              </mesh>
+            </group>
 
-              return (
-                <group key={axis} userData={{ isGizmoHandle: true }}>
-                  {/* Crisp 3D Curved Arc Line */}
-                  <Line
-                    points={arc.points}
-                    color={arc.color}
-                    lineWidth={isActive ? 3.8 : 2.6}
-                    depthTest={false}
-                    renderOrder={999}
-                  />
-                  {/* End Tip Dots */}
-                  <mesh
-                    position={startPt}
-                    renderOrder={999}
-                    userData={{ isGizmoHandle: true }}
-                  >
-                    <sphereGeometry args={[4, 10, 10]} />
-                    <meshBasicMaterial color={arc.color} depthTest={false} />
-                  </mesh>
-                  <mesh
-                    position={endPt}
-                    renderOrder={999}
-                    userData={{ isGizmoHandle: true }}
-                  >
-                    <sphereGeometry args={[4, 10, 10]} />
-                    <meshBasicMaterial color={arc.color} depthTest={false} />
-                  </mesh>
+            {/* 2. X-AXIS CURVED DOUBLE-ARROW (BLUE #2563eb — Vertical YZ plane outside +X end) */}
+            <group
+              position={[halfBx + 18, 0, 0]}
+              rotation={[0, Math.PI / 2, 0]}
+              userData={{ isGizmoHandle: true }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setHoveredArc('x');
+              }}
+              onPointerOut={() => setHoveredArc(null)}
+              onPointerDown={(e) => startRotateAxis('x', e)}
+            >
+              <mesh
+                geometry={arrowGeometries.visual}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <meshBasicMaterial
+                  color={
+                    hoveredArc === 'x' ||
+                    (dragState?.kind === 'rotate-axis' &&
+                      dragState.axis === 'x')
+                      ? '#f59e0b'
+                      : '#2563eb'
+                  }
+                  side={THREE.DoubleSide}
+                  depthTest={false}
+                />
+                <Edges color="#ffffff" threshold={15} />
+              </mesh>
+              <mesh
+                geometry={arrowGeometries.hit}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  side={THREE.DoubleSide}
+                  depthTest={false}
+                />
+              </mesh>
+            </group>
 
-                  {/* Interactive Screen-Space Curved Rotation Handle Badge at Arc Midpoint */}
-                  <Html position={arc.mid} center zIndexRange={[32, 0]}>
-                    <button
-                      type="button"
-                      onPointerEnter={() => setHoveredArc(axis)}
-                      onPointerLeave={() => setHoveredArc(null)}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        startRotateAxisClient(axis, e.clientX, e.clientY);
-                      }}
-                      style={{ backgroundColor: arc.color }}
-                      className={`w-6 h-6 rounded-full text-white border-2 border-white shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing transition select-none ${
-                        isActive ? 'scale-125 ring-2 ring-amber-400' : 'hover:scale-110'
-                      }`}
-                      title={`גרור לסיבוב בציר ${arc.label} (${
-                        axis === 'x'
-                          ? 'כחול'
-                          : axis === 'y'
-                          ? 'שחור - אופקי'
-                          : 'אדום'
-                      })`}
-                    >
-                      <CurvedRotateSvg />
-                    </button>
-                  </Html>
-                </group>
-              );
-            })}
+            {/* 3. Z-AXIS CURVED DOUBLE-ARROW (RED #dc2626 — Vertical XY plane outside +Z front) */}
+            <group
+              position={[0, 0, halfBz + 18]}
+              rotation={[0, 0, Math.PI / 2]}
+              userData={{ isGizmoHandle: true }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setHoveredArc('z');
+              }}
+              onPointerOut={() => setHoveredArc(null)}
+              onPointerDown={(e) => startRotateAxis('z', e)}
+            >
+              <mesh
+                geometry={arrowGeometries.visual}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <meshBasicMaterial
+                  color={
+                    hoveredArc === 'z' ||
+                    (dragState?.kind === 'rotate-axis' &&
+                      dragState.axis === 'z')
+                      ? '#f59e0b'
+                      : '#dc2626'
+                  }
+                  side={THREE.DoubleSide}
+                  depthTest={false}
+                />
+                <Edges color="#ffffff" threshold={15} />
+              </mesh>
+              <mesh
+                geometry={arrowGeometries.hit}
+                renderOrder={999}
+                userData={{ isGizmoHandle: true }}
+              >
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  side={THREE.DoubleSide}
+                  depthTest={false}
+                />
+              </mesh>
+            </group>
           </group>
 
           {/* Photoshop / Illustrator Draggable Pivot Reference Point Reticle */}
@@ -623,10 +693,10 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
             <Html position={[0, 0, 0]} center zIndexRange={[30, 0]}>
               <div
                 onPointerDown={startDragPivot}
-                className="w-6 h-6 rounded-full bg-white hover:bg-amber-50 text-slate-900 hover:text-amber-600 border-2 border-slate-800 shadow-md flex items-center justify-center cursor-move transition select-none"
+                className="w-5.5 h-5.5 rounded-full bg-white hover:bg-amber-50 text-slate-900 hover:text-amber-600 border-[1.5px] border-slate-800 shadow-sm flex items-center justify-center cursor-move transition select-none"
                 title="נקודת עוגן לסיבוב (גרור למיקום הרצוי על הקורה)"
               >
-                <IconPivotTarget size={14} />
+                <IconPivotTarget size={13} />
               </div>
             </Html>
           </group>
@@ -759,7 +829,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') setEditingDim(null);
                   }}
-                  className="w-14 text-xs font-mono font-bold text-center bg-transparent outline-none"
+                  className="w-14 text-xs font-mono tabular-nums font-bold text-center bg-transparent outline-none"
                 />
               </form>
             ) : (
@@ -771,7 +841,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                   setDimInputVal(fmtVal(part.dimensions.length));
                   setEditingDim('length');
                 }}
-                className="bg-white hover:bg-blue-50 text-slate-900 font-mono font-bold text-xs px-2 py-0.5 rounded shadow-md border border-blue-600 whitespace-nowrap cursor-pointer transition select-none"
+                className="bg-white hover:bg-blue-50 text-slate-900 font-mono tabular-nums font-bold text-xs px-2 py-0.5 rounded shadow-sm border border-blue-600 whitespace-nowrap cursor-pointer select-none"
                 title="לחץ להקלדת מידה מדויקת"
               >
                 {fmtVal(part.dimensions.length)}
@@ -789,7 +859,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                     e.stopPropagation();
                     startStretchClient('width-end', e.clientX, e.clientY);
                   }}
-                  className="w-3.5 h-3.5 bg-white hover:bg-red-600 border-[1.5px] border-slate-900 hover:border-white shadow-sm cursor-ns-resize transition"
+                  className="w-3.5 h-3.5 bg-white hover:bg-red-600 border-[1.5px] border-slate-900 hover:border-white shadow-2xs cursor-ns-resize"
                   title="גרור לשינוי רוחב הלוח"
                 />
               </Html>
@@ -800,7 +870,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                     e.stopPropagation();
                     startStretchClient('width-start', e.clientX, e.clientY);
                   }}
-                  className="w-3.5 h-3.5 bg-white hover:bg-red-600 border-[1.5px] border-slate-900 hover:border-white shadow-sm cursor-ns-resize transition"
+                  className="w-3.5 h-3.5 bg-white hover:bg-red-600 border-[1.5px] border-slate-900 hover:border-white shadow-2xs cursor-ns-resize"
                   title="גרור לשינוי רוחב הלוח"
                 />
               </Html>
@@ -828,7 +898,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                       commitTypedDimension('width');
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 bg-white text-slate-900 px-1.5 py-0.5 rounded shadow-lg border-2 border-red-600"
+                    className="flex items-center gap-1 bg-white text-slate-900 px-1.5 py-0.5 rounded shadow-md border-2 border-red-600"
                   >
                     <input
                       type="number"
@@ -840,7 +910,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') setEditingDim(null);
                       }}
-                      className="w-14 text-xs font-mono font-bold text-center bg-transparent outline-none"
+                      className="w-14 text-xs font-mono tabular-nums font-bold text-center bg-transparent outline-none"
                     />
                   </form>
                 ) : (
@@ -852,7 +922,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
                       setDimInputVal(fmtVal(part.dimensions.width));
                       setEditingDim('width');
                     }}
-                    className="bg-white hover:bg-red-50 text-slate-900 font-mono font-bold text-xs px-2 py-0.5 rounded shadow-md border border-red-600 whitespace-nowrap cursor-pointer transition select-none"
+                    className="bg-white hover:bg-red-50 text-slate-900 font-mono tabular-nums font-bold text-xs px-2 py-0.5 rounded shadow-sm border border-red-600 whitespace-nowrap cursor-pointer select-none"
                     title="לחץ להקלדת רוחב מדויק"
                   >
                     {fmtVal(part.dimensions.width)}
@@ -871,7 +941,7 @@ export const InteractiveGizmoHandles: React.FC<Props> = ({
           center
           zIndexRange={[40, 0]}
         >
-          <div className="bg-slate-900 text-white font-bold font-mono text-xs px-2.5 py-1 rounded shadow-lg whitespace-nowrap pointer-events-none">
+          <div className="bg-white/95 text-slate-900 border border-slate-300 font-bold font-mono tabular-nums text-xs px-2.5 py-1 rounded-lg shadow-sm whitespace-nowrap pointer-events-none">
             {liveBadge}
           </div>
         </Html>

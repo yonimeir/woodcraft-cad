@@ -14,11 +14,11 @@ export const ViewCubeOverlay: React.FC = () => {
   const [cornerIdx, setCornerIdx] = React.useState(0);
 
   const circleBtn =
-    'w-9 h-9 rounded-full bg-white hover:bg-slate-50 text-slate-700 hover:text-amber-600 border border-slate-200/90 shadow-md flex items-center justify-center transition cursor-pointer';
+    'w-9 h-9 rounded-full surface-card hover:bg-slate-50 text-slate-700 hover:text-amber-600 flex items-center justify-center cursor-pointer';
 
   return (
     <div
-      className="absolute top-36 left-4 z-20 flex flex-col items-center gap-2 select-none"
+      className="absolute top-36 end-4 z-20 flex flex-col items-center gap-2 select-none"
       title="כלי ניווט מצלמה"
     >
       {/* 1. Home View */}

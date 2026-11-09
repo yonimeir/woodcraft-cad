@@ -90,52 +90,52 @@ export const LeftInspectorPanel: React.FC = () => {
   }
 
   return (
-    <div className="absolute top-3 left-16 z-25 flex flex-col gap-2 max-h-[calc(100%-24px)] overflow-y-auto select-none pointer-events-auto">
+    <div className="absolute top-3 end-16 z-25 flex flex-col gap-2 max-h-[calc(100%-24px)] overflow-y-auto select-none pointer-events-auto">
       {/* =====================================================================
           1. FOCUSED TOOL POPOVER (Opened from Row 2 Action Icon Toolbar)
          ===================================================================== */}
       {activeToolPopover !== 'none' && (
-        <div className="w-72 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl shadow-xl p-3 text-xs text-slate-800 space-y-3">
+        <div className="w-72 surface-modal backdrop-blur-md rounded-xl p-3 text-xs text-slate-800 space-y-3">
           {/* Popover Header */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
               {activeToolPopover === 'align' && (
                 <>
                   <IconAlignCenter size={16} className="text-amber-600" />
-                  <span>יישור ופיזור (Align)</span>
+                  <span>יישור ופיזור</span>
                 </>
               )}
               {activeToolPopover === 'pivot' && (
                 <>
                   <IconPivotTarget size={16} className="text-amber-600" />
-                  <span>נקודת עוגן וסיבוב</span>
+                  <span>עוגן וסיבוב</span>
                 </>
               )}
               {activeToolPopover === 'miter' && (
                 <>
                   <IconMiterCut size={16} className="text-amber-600" />
-                  <span>חיתוכי גרונג (Miter)</span>
+                  <span>חיתוכי גרונג</span>
                 </>
               )}
               {activeToolPopover === 'dado' && (
                 <>
                   <IconDadoJoint size={16} className="text-amber-600" />
-                  <span>מגרעות (Half-Lap / Dado)</span>
+                  <span>מגרעות</span>
                 </>
               )}
               {activeToolPopover === 'pocket' && (
                 <>
                   <IconPocketHole size={16} className="text-amber-600" />
-                  <span>חורי כיס נסתרים (Kreg)</span>
+                  <span>חורי כיס (Kreg)</span>
                 </>
               )}
               {activeToolPopover === 'spacer' && (
                 <>
                   <IconDistributeEvenly size={16} className="text-amber-600" />
-                  <span>פיזור קורות במרווח שווה</span>
+                  <span>שכפול במרווח</span>
                 </>
               )}
-              {activeToolPopover === 'room' && <span>קירות חדר ומכשולים</span>}
+              {activeToolPopover === 'room' && <span>קירות חדר</span>}
             </span>
             <button
               type="button"
@@ -153,17 +153,17 @@ export const LeftInspectorPanel: React.FC = () => {
                 [
                   {
                     axis: 'x',
-                    label: 'ציר X — כחול (שמאל / מרכז / ימין)',
+                    label: 'ציר X (כחול)',
                     colorClass: 'text-blue-600 font-bold',
                   },
                   {
                     axis: 'z',
-                    label: 'ציר Z — אדום (אחור / מרכז / חזית)',
+                    label: 'ציר Z (אדום)',
                     colorClass: 'text-red-600 font-bold',
                   },
                   {
                     axis: 'y',
-                    label: 'ציר Y — שחור (תחתית / אמצע / עליון)',
+                    label: 'ציר Y (שחור)',
                     colorClass: 'text-slate-900 font-bold',
                   },
                 ] as const
@@ -176,7 +176,7 @@ export const LeftInspectorPanel: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'min')}
-                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer transition"
+                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
                       title="יישר לקצה התחלתי"
                     >
                       <IconAlignStart size={16} />
@@ -184,7 +184,7 @@ export const LeftInspectorPanel: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'center')}
-                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer transition"
+                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
                       title="יישר למרכז"
                     >
                       <IconAlignCenter size={16} />
@@ -192,7 +192,7 @@ export const LeftInspectorPanel: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'max')}
-                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer transition"
+                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
                       title="יישר לקצה סופי"
                     >
                       <IconAlignEnd size={16} />
@@ -200,7 +200,7 @@ export const LeftInspectorPanel: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => alignSelectedParts(axis, 'distribute')}
-                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer transition"
+                      className="h-8 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
                       title="פזר במרווחים שווים (ל-3 חלקים ומעלה)"
                     >
                       <IconDistributeEvenly size={16} />
@@ -215,8 +215,8 @@ export const LeftInspectorPanel: React.FC = () => {
           {activeToolPopover === 'pivot' && selectedPart && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-500">
-                  בחר נקודת עוגן (או גרור על הקורה):
+                <span className="text-[11px] font-bold text-slate-600">
+                  נקודת עוגן:
                 </span>
                 <button
                   type="button"
@@ -245,9 +245,9 @@ export const LeftInspectorPanel: React.FC = () => {
                             z: selectedPart.pivot.z,
                           })
                         }
-                        className={`w-7 h-7 rounded-md border flex items-center justify-center transition cursor-pointer ${
+                        className={`w-7 h-7 rounded-md border flex items-center justify-center cursor-pointer ${
                           isActive
-                            ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                            ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-2xs'
                             : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-400'
                         }`}
                       >
@@ -280,9 +280,9 @@ export const LeftInspectorPanel: React.FC = () => {
                         z: item.z,
                       })
                     }
-                    className={`py-1 rounded text-[11px] font-bold border transition cursor-pointer ${
+                    className={`py-1 rounded text-[11px] font-bold border cursor-pointer ${
                       Math.abs(selectedPart.pivot.z - item.z) < 0.15
-                        ? 'bg-slate-800 text-white border-slate-900'
+                        ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-2xs'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
@@ -438,9 +438,8 @@ export const LeftInspectorPanel: React.FC = () => {
           {activeToolPopover === 'dado' && selectedPart && (
             <div className="space-y-2.5">
               {partCollisions.length === 0 ? (
-                <div className="text-slate-500 text-center py-3">
-                  הצב קורה חוצה מול קורה זו כדי ליצור מגרעת חצי-חצי (Half-Lap) או
-                  מגרעת מלאה (Dado).
+                <div className="text-slate-500 text-center py-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  הצב קורה חוצה ליצירת מגרעת
                 </div>
               ) : (
                 partCollisions.map((col) => {
@@ -468,7 +467,7 @@ export const LeftInspectorPanel: React.FC = () => {
                               'half'
                             )
                           }
-                          className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-1 rounded cursor-pointer"
+                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-1 rounded cursor-pointer"
                         >
                           חצי-חצי (Half-Lap)
                         </button>
@@ -481,7 +480,7 @@ export const LeftInspectorPanel: React.FC = () => {
                               'full'
                             )
                           }
-                          className="bg-slate-800 hover:bg-slate-900 text-white font-bold py-1 rounded cursor-pointer"
+                          className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold py-1 rounded cursor-pointer"
                         >
                           מגרעת מלאה (Dado)
                         </button>

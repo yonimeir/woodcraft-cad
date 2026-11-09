@@ -50,7 +50,7 @@ export const RightSidebar: React.FC = () => {
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="h-14 w-6 bg-white hover:bg-slate-50 border border-r-0 border-slate-200 rounded-l-xl shadow-md flex items-center justify-center text-slate-600 hover:text-amber-600 cursor-pointer transition"
+          className="h-14 w-6 bg-white hover:bg-slate-50 border border-s-0 border-slate-200 rounded-e-xl shadow-sm flex items-center justify-center text-slate-600 hover:text-amber-600 cursor-pointer"
           title="פתח ספריית עצים ושכבות"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -60,12 +60,12 @@ export const RightSidebar: React.FC = () => {
   }
 
   return (
-    <aside className="relative w-64 bg-white border-l border-slate-200 flex flex-col h-full shrink-0 select-none z-20 shadow-xs">
+    <aside className="relative w-64 bg-white border-e border-slate-200 flex flex-col h-full shrink-0 select-none z-20 shadow-2xs">
       {/* Tinkercad-Style Side Collapse Tab */}
       <button
         type="button"
         onClick={() => setCollapsed(true)}
-        className="absolute -left-5 top-1/2 -translate-y-1/2 h-12 w-5 bg-white hover:bg-slate-50 border border-r-0 border-slate-200 rounded-l-lg shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer transition"
+        className="absolute -end-5 top-1/2 -translate-y-1/2 h-12 w-5 bg-white hover:bg-slate-50 border border-s-0 border-slate-200 rounded-e-lg shadow-2xs flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer"
         title="קפל פאנל צד"
       >
         <ChevronRight className="w-3.5 h-3.5" />
@@ -76,7 +76,7 @@ export const RightSidebar: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('stock')}
-          className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold cursor-pointer ${
             activeTab === 'stock'
               ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
               : 'text-slate-500 hover:text-slate-800'
@@ -88,7 +88,7 @@ export const RightSidebar: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('layers')}
-          className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold tabular-nums cursor-pointer ${
             activeTab === 'layers'
               ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
               : 'text-slate-500 hover:text-slate-800'
@@ -258,7 +258,7 @@ export const RightSidebar: React.FC = () => {
                             setEditingGroupId(grp.id);
                             setEditingName(grp.name);
                           }}
-                          className="text-xs font-bold text-slate-800 truncate text-right cursor-pointer"
+                          className="text-xs font-bold text-slate-800 truncate text-start tabular-nums cursor-pointer"
                         >
                           {grp.name} ({grpParts.length})
                         </button>

@@ -71,13 +71,13 @@ function analyzeCanvasPixels(
 
   const imgData = ctx2d.getImageData(0, 0, w, h).data;
 
-  // Background color is dark slate (#0f172a -> R~15, G~23, B~42)
+  // Background color is crisp light studio (#f8fafc -> R~248, G~250, B~252)
   const isForeground = (x: number, y: number): boolean => {
     const idx = (y * w + x) * 4;
     const r = imgData[idx];
     const g = imgData[idx + 1];
     const b = imgData[idx + 2];
-    return Math.abs(r - 15) + Math.abs(g - 23) + Math.abs(b - 42) > 48;
+    return Math.abs(r - 248) + Math.abs(g - 250) + Math.abs(b - 252) > 36;
   };
 
   let minX = w,
@@ -231,14 +231,14 @@ export function renderAndValidateMultiAngle(
   const renderer = getOffscreenRenderer(W, H);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#0f172a');
+  scene.background = new THREE.Color('#f8fafc');
 
-  const ambient = new THREE.AmbientLight('#ffffff', 0.85);
+  const ambient = new THREE.AmbientLight('#ffffff', 0.92);
   scene.add(ambient);
-  const dir1 = new THREE.DirectionalLight('#ffffff', 1.15);
+  const dir1 = new THREE.DirectionalLight('#ffffff', 1.1);
   dir1.position.set(2000, 3200, 2200);
   scene.add(dir1);
-  const dir2 = new THREE.DirectionalLight('#94a3b8', 0.55);
+  const dir2 = new THREE.DirectionalLight('#cbd5e1', 0.55);
   dir2.position.set(-1800, 1400, -1800);
   scene.add(dir2);
 

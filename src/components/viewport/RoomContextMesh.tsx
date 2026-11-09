@@ -77,9 +77,9 @@ export const RoomContextMesh: React.FC = () => {
           >
             <boxGeometry args={[room.width, H, wallThick]} />
             <meshStandardMaterial
-              color="#334155"
+              color="#cbd5e1"
               transparent
-              opacity={0.38}
+              opacity={0.45}
               roughness={0.9}
             />
           </mesh>
@@ -98,12 +98,12 @@ export const RoomContextMesh: React.FC = () => {
                   room.baseboardThickness,
                 ]}
               />
-              <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.6} />
             </mesh>
           )}
           <Html position={[0, H + 70, -halfD]} center>
-            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono whitespace-nowrap pointer-events-none">
-              קיר אחורי: {fmt(room.width)} × גובה {fmt(H)}
+            <div className="bg-white/95 text-slate-700 border border-slate-300 shadow-xs px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold whitespace-nowrap pointer-events-none">
+              קיר אחורי: {fmt(room.width)} × {fmt(H)}
             </div>
           </Html>
         </group>
@@ -118,9 +118,9 @@ export const RoomContextMesh: React.FC = () => {
           >
             <boxGeometry args={[wallThick, H, room.depth]} />
             <meshStandardMaterial
-              color="#334155"
+              color="#cbd5e1"
               transparent
-              opacity={0.34}
+              opacity={0.4}
               roughness={0.9}
             />
           </mesh>
@@ -139,12 +139,12 @@ export const RoomContextMesh: React.FC = () => {
                   room.depth,
                 ]}
               />
-              <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.6} />
             </mesh>
           )}
           <Html position={[-halfW, H + 70, 0]} center>
-            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono whitespace-nowrap pointer-events-none">
-              קיר שמאל: עומק {fmt(room.depth)}
+            <div className="bg-white/95 text-slate-700 border border-slate-300 shadow-xs px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold whitespace-nowrap pointer-events-none">
+              קיר שמאל: {fmt(room.depth)}
             </div>
           </Html>
         </group>
@@ -159,9 +159,9 @@ export const RoomContextMesh: React.FC = () => {
           >
             <boxGeometry args={[wallThick, H, room.depth]} />
             <meshStandardMaterial
-              color="#334155"
+              color="#cbd5e1"
               transparent
-              opacity={0.34}
+              opacity={0.4}
               roughness={0.9}
             />
           </mesh>
@@ -180,12 +180,12 @@ export const RoomContextMesh: React.FC = () => {
                   room.depth,
                 ]}
               />
-              <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.6} />
             </mesh>
           )}
           <Html position={[halfW, H + 70, 0]} center>
-            <div className="bg-slate-900/90 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-full text-[10px] font-mono whitespace-nowrap pointer-events-none">
-              קיר ימין: עומק {fmt(room.depth)}
+            <div className="bg-white/95 text-slate-700 border border-slate-300 shadow-xs px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold whitespace-nowrap pointer-events-none">
+              קיר ימין: {fmt(room.depth)}
             </div>
           </Html>
         </group>
@@ -222,7 +222,7 @@ export const RoomContextMesh: React.FC = () => {
               />
             </mesh>
             <Html position={[0, 0, obs.depth / 2 + 10]} center>
-              <div className="bg-slate-950/90 text-slate-100 border border-slate-600 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap shadow pointer-events-none">
+              <div className="bg-white/95 text-slate-800 border border-slate-300 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap shadow-xs pointer-events-none">
                 {obs.name} ({fmt(obs.width)}×{fmt(obs.height)})
               </div>
             </Html>

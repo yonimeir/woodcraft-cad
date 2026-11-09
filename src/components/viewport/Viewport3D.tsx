@@ -417,14 +417,14 @@ export const Viewport3D: React.FC = () => {
       </Canvas>
 
       {/* Tinkercad Bottom-Left Snap Grid Selector */}
-      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm text-xs text-slate-700 select-none">
+      <div className="absolute bottom-3 end-3 z-20 flex items-center gap-2 surface-card backdrop-blur-md px-2.5 py-1 rounded-lg text-xs text-slate-700 select-none">
         <span className="text-[11px] font-medium text-slate-500">
-          רשת הצמדה:
+          רשת:
         </span>
         <select
           value={gridSnapStepMm}
           onChange={(e) => setGridSnapStepMm(Number(e.target.value))}
-          className="bg-transparent font-mono font-bold text-slate-800 outline-none cursor-pointer"
+          className="bg-transparent font-mono tabular-nums font-bold text-slate-800 outline-none cursor-pointer"
         >
           <option value={1}>1.0 מ"מ</option>
           <option value={5}>5.0 מ"מ</option>
@@ -436,7 +436,7 @@ export const Viewport3D: React.FC = () => {
       {/* Minimal Empty-State Launcher Pill when Workspace has 0 parts */}
       {parts.length === 0 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10">
-          <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-2.5 shadow-lg flex items-center gap-2">
+          <div className="pointer-events-auto surface-modal backdrop-blur-md rounded-2xl px-4 py-2.5 flex items-center gap-2">
             <button
               type="button"
               onClick={() =>
@@ -446,7 +446,7 @@ export const Viewport3D: React.FC = () => {
                   })
                 )
               }
-              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer"
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <IconAiBlueprint size={15} />
               <span>מחולל מוצרים</span>
@@ -461,19 +461,19 @@ export const Viewport3D: React.FC = () => {
                   })
                 )
               }
-              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <IconTemplatesGrid size={15} />
-              <span>תבניות מוכנות</span>
+              <span>תבניות</span>
             </button>
 
             <button
               type="button"
               onClick={() => addPartFromStock('pine-5x10')}
-              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 transition cursor-pointer"
+              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 text-amber-600" />
-              <span>קורת עץ חדשה</span>
+              <span>קורה חדשה</span>
             </button>
           </div>
         </div>
@@ -481,7 +481,7 @@ export const Viewport3D: React.FC = () => {
 
       {/* Small Unobtrusive Corner Alert Pill */}
       {!activeNotePart && totalAlertsCount > 0 && !pillDismissed && (
-        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 bg-white/95 backdrop-blur-md border border-amber-300 text-slate-800 px-3 py-1.5 rounded-full shadow-md text-xs">
+        <div className="absolute bottom-3 start-3 z-20 flex items-center gap-1.5 surface-card backdrop-blur-md border-amber-300 text-slate-800 px-3 py-1.5 rounded-full text-xs tabular-nums">
           <button
             type="button"
             onClick={() => {
@@ -495,12 +495,12 @@ export const Viewport3D: React.FC = () => {
             className="flex items-center gap-1.5 hover:text-amber-600 font-bold cursor-pointer"
           >
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-            <span>{totalAlertsCount} התראות הנדסיות</span>
+            <span>{totalAlertsCount} התראות</span>
           </button>
           <button
             type="button"
             onClick={() => setPillDismissed(true)}
-            className="text-slate-400 hover:text-slate-700 p-0.5 rounded-full cursor-pointer mr-1"
+            className="text-slate-400 hover:text-slate-700 p-0.5 rounded-full cursor-pointer ms-1"
             title="הסתר"
           >
             <X className="w-3.5 h-3.5" />
@@ -511,10 +511,10 @@ export const Viewport3D: React.FC = () => {
       {/* On-Demand Note Popover Card */}
       {activeNotePart &&
         (activeNoteLoad || activeNoteCollisions.length > 0) && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-md w-[92%] bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 space-y-3 text-xs text-slate-800">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-md w-[92%] surface-modal rounded-2xl p-4 space-y-3 text-xs text-slate-800">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
-                <span className="bg-amber-500 text-white font-mono px-2 py-0.5 rounded text-xs">
+                <span className="bg-amber-500 text-slate-950 font-mono px-2 py-0.5 rounded text-xs">
                   {partIdToLabel[activeNotePart.id] || '?'}
                 </span>
                 <span>{activeNotePart.name}</span>
@@ -522,7 +522,7 @@ export const Viewport3D: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveNotePartId(null)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-1 rounded-lg transition cursor-pointer"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-1 rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

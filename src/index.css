@@ -1,17 +1,73 @@
 @import "tailwindcss";
 
+:root {
+  /* Perceptual OKLCH Palette tinted toward Warm Timber / Architectural Slate */
+  --bg-app: oklch(97.8% 0.004 250);
+  --bg-surface: oklch(99.3% 0.003 75);
+  --bg-elevated: oklch(99.6% 0.002 75);
+  --bg-muted: oklch(95.5% 0.006 250);
+  --text-primary: oklch(20.5% 0.022 255);
+  --text-secondary: oklch(44.5% 0.02 255);
+  --border-subtle: oklch(89.5% 0.008 250);
+  --brand-primary: oklch(74% 0.165 70);
+  --axis-x: oklch(54.6% 0.215 262);
+  --axis-y: oklch(20.5% 0.022 255);
+  --axis-z: oklch(57.7% 0.215 27);
+}
+
+@theme {
+  --color-white: oklch(99.4% 0.002 75);
+  --color-black: oklch(15% 0.015 255);
+}
+
 @layer base {
   body {
-    font-family: 'Heebo', system-ui, -apple-system, sans-serif;
+    font-family: 'Heebo', 'Assistant', 'Rubik', sans-serif;
     direction: rtl;
     user-select: none;
-    background-color: #f8fafc;
-    color: #0f172a;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
   }
 
-  code, pre, .font-mono {
+  code, pre, .font-mono, input[type="number"], table {
     font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
   }
+
+  button {
+    transition-property: transform, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+.surface-card {
+  background-color: var(--bg-surface);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.65),
+    0 2px 6px -1px rgba(15, 23, 42, 0.06),
+    0 1px 2px 0 rgba(15, 23, 42, 0.04);
+}
+
+.surface-modal {
+  background-color: var(--bg-elevated);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8),
+    0 12px 32px -4px rgba(15, 23, 42, 0.12),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06);
 }
 
 /* Custom subtle scrollbars for clean Light CAD UI */
@@ -21,14 +77,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(241, 245, 249, 0.9);
+  background: oklch(96% 0.005 250);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.75);
+  background: oklch(72% 0.015 250);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(217, 119, 6, 0.85);
+  background: oklch(68% 0.155 68);
 }

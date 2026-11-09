@@ -50,10 +50,10 @@ const Sheet2DCanvas: React.FC<{ board: SheetStockBoard }> = ({ board }) => {
     const scaleX = drawW / board.sheetLengthMm;
     const scaleY = drawH / board.sheetWidthMm;
 
-    // Raw board background (waste area hatched/dark)
-    ctx.fillStyle = '#1e293b';
+    // Raw board background (clean light sheet surface)
+    ctx.fillStyle = '#f1f5f9';
     ctx.fillRect(pad, pad, drawW, drawH);
-    ctx.strokeStyle = '#64748b';
+    ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 2;
     ctx.strokeRect(pad, pad, drawW, drawH);
 
@@ -63,7 +63,7 @@ const Sheet2DCanvas: React.FC<{ board: SheetStockBoard }> = ({ board }) => {
       const ty = pad + board.edgeTrimMm * scaleY;
       const tw = (board.sheetLengthMm - board.edgeTrimMm * 2) * scaleX;
       const th = (board.sheetWidthMm - board.edgeTrimMm * 2) * scaleY;
-      ctx.strokeStyle = '#fbbf24';
+      ctx.strokeStyle = '#d97706';
       ctx.setLineDash([4, 4]);
       ctx.lineWidth = 1;
       ctx.strokeRect(tx, ty, tw, th);
@@ -78,7 +78,7 @@ const Sheet2DCanvas: React.FC<{ board: SheetStockBoard }> = ({ board }) => {
       const rh = p.widthMm * scaleY;
 
       const color = PALETTE[idx % PALETTE.length];
-      ctx.fillStyle = color + '33';
+      ctx.fillStyle = color + '28';
       ctx.fillRect(rx, ry, rw, rh);
 
       ctx.strokeStyle = color;
@@ -86,7 +86,7 @@ const Sheet2DCanvas: React.FC<{ board: SheetStockBoard }> = ({ board }) => {
       ctx.strokeRect(rx, ry, rw, rh);
 
       // Label in center
-      ctx.fillStyle = '#f8fafc';
+      ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 13px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -94,10 +94,10 @@ const Sheet2DCanvas: React.FC<{ board: SheetStockBoard }> = ({ board }) => {
       if (rw > 55 && rh > 22) {
         ctx.fillText(centerText, rx + rw / 2, ry + rh / 2 - (rh > 42 ? 7 : 0));
         if (rh > 42) {
-          ctx.fillStyle = '#cbd5e1';
+          ctx.fillStyle = '#475569';
           ctx.font = '11px "Heebo", sans-serif';
           ctx.fillText(
-            `${p.partName}${p.rotated ? ' (מסובב 90°)' : ''}`,
+            `${p.partName}${p.rotated ? ' (90°)' : ''}`,
             rx + rw / 2,
             ry + rh / 2 + 10
           );
@@ -106,7 +106,7 @@ const Sheet2DCanvas: React.FC<{ board: SheetStockBoard }> = ({ board }) => {
     });
 
     // Outer sheet dimensions text
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = '#475569';
     ctx.font = '11px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.fillText(
@@ -121,7 +121,7 @@ const Sheet2DCanvas: React.FC<{ board: SheetStockBoard }> = ({ board }) => {
       ref={canvasRef}
       width={760}
       height={400}
-      className="w-full max-w-[760px] h-auto rounded-lg border border-slate-800 bg-slate-950 mx-auto block"
+      className="w-full max-w-[760px] h-auto rounded-lg border border-slate-200 bg-white mx-auto block"
     />
   );
 };
@@ -232,21 +232,28 @@ export const WorkshopCutOptimizerView: React.FC = () => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
 
-    // Header Banner
-    ctx.fillStyle = '#0f172a';
+    // Header Banner (Light Print-Friendly Architectural Header)
+    ctx.fillStyle = '#f8fafc';
     ctx.fillRect(0, 0, pageCanvas.width, 130);
-    ctx.fillStyle = '#f59e0b';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 130);
+    ctx.lineTo(pageCanvas.width, 130);
+    ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 34px "Heebo", sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(
-      `תוכנית עבודה ורשימת חיתוך: ${projectName}`,
+      `תוכנית חיתוך ו-BOM: ${projectName}`,
       pageCanvas.width - 50,
       62
     );
-    ctx.fillStyle = '#cbd5e1';
+    ctx.fillStyle = '#475569';
     ctx.font = '20px "Heebo", sans-serif';
     ctx.fillText(
-      `WoodCraft 3D CAD | עובי להב: ${optimizerSettings.kerfMm} מ"מ | יישור קצה: ${optimizerSettings.edgeTrimMm} מ"מ | סה"כ חלקים: ${parts.filter((p) => p.visible).length}`,
+      `WoodCraft 3D CAD | להב: ${optimizerSettings.kerfMm} מ"מ | יישור קצה: ${optimizerSettings.edgeTrimMm} מ"מ | חלקים: ${parts.filter((p) => p.visible).length}`,
       pageCanvas.width - 50,
       102
     );
@@ -261,7 +268,7 @@ export const WorkshopCutOptimizerView: React.FC = () => {
       try {
         ctx.fillStyle = '#0f172a';
         ctx.font = 'bold 24px "Heebo", sans-serif';
-        ctx.fillText('1. הדמיה תלת-ממדית של הפרויקט:', pageCanvas.width - 50, yCursor);
+        ctx.fillText('1. הדמיה תלת-ממדית:', pageCanvas.width - 50, yCursor);
         yCursor += 18;
         ctx.drawImage(threeCanvas, 220, yCursor, 800, 360);
         ctx.strokeStyle = '#cbd5e1';
@@ -278,16 +285,16 @@ export const WorkshopCutOptimizerView: React.FC = () => {
     ctx.font = 'bold 24px "Heebo", sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(
-      '2. טבלת חיתוך מרוכזת (BOM / Cut List):',
+      '2. טבלת חיתוך מרוכזת (BOM):',
       pageCanvas.width - 50,
       yCursor
     );
     yCursor += 22;
 
-    // Table Header
-    ctx.fillStyle = '#1e293b';
+    // Table Header (Light Architectural Style)
+    ctx.fillStyle = '#e2e8f0';
     ctx.fillRect(50, yCursor, pageCanvas.width - 100, 44);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 18px "Heebo", sans-serif';
     ctx.fillText('אות', pageCanvas.width - 70, yCursor + 28);
     ctx.fillText('תיאור החלקים', pageCanvas.width - 150, yCursor + 28);
@@ -405,60 +412,54 @@ export const WorkshopCutOptimizerView: React.FC = () => {
   return (
     <div
       ref={printableRef}
-      className="flex-1 h-full overflow-y-auto bg-slate-950 p-6 space-y-6 select-text"
+      className="flex-1 h-full overflow-y-auto bg-slate-50 p-6 space-y-5 select-text"
     >
       {/* Top Action & Settings Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-xs font-bold">
-              מצב סדנה ותוצרים
-            </span>
-            <h2 className="text-lg font-extrabold text-white">
-              תוכנית עבודה, רשימת חיתוך (BOM) ואופטימיזציית ניסור – {projectName}
-            </h2>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            המערכת קיבצה אוטומטית את כל החלקים הזהים וחישבה פריסת ניסור אופטימלית
-            למזעור פחת בקורות (1D) ובפלטות (2D Guillotine).
-          </p>
+      <div className="surface-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
+            תוכנית עבודה
+          </span>
+          <h2 className="text-base font-extrabold text-slate-900">
+            רשימת חיתוך ופריסת ניסור – {projectName}
+          </h2>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveView('3d')}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer"
           >
-            חזרה לעורך ה-3D
+            משטח 3D
           </button>
           <button
             onClick={() => window.print()}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-4 h-4" />
-            הדפס מסך
+            הדפס
           </button>
           <button
             onClick={handleExportPdf}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-lg transition cursor-pointer"
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-2xs cursor-pointer"
           >
             <FileDown className="w-4 h-4" />
-            הורד תוכנית עבודה ל-PDF
+            ייצוא PDF
           </button>
         </div>
       </div>
 
       {/* Optimizer Parameters Panel */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-        <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
-          <Settings2 className="w-4 h-4 shrink-0" />
-          <span>פרמטרים למחסן העצים ולמסור:</span>
+      <div className="surface-card rounded-2xl p-4 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+        <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+          <Settings2 className="w-4 h-4 text-amber-500 shrink-0" />
+          <span>הגדרות ניסור:</span>
         </div>
 
         {/* Stock Bar Length */}
         <div>
-          <label className="text-[11px] text-slate-400 block mb-1">
-            אורך קורת גלם במחסן:
+          <label className="text-[11px] text-slate-500 block mb-1">
+            אורך קורת גלם:
           </label>
           <select
             value={optimizerSettings.defaultLumberStockLengthMm}
@@ -467,7 +468,7 @@ export const WorkshopCutOptimizerView: React.FC = () => {
                 defaultLumberStockLengthMm: Number(e.target.value),
               })
             }
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white"
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums text-slate-800"
           >
             <option value={2400}>2400 מ"מ (2.4 מ')</option>
             <option value={3000}>3000 מ"מ (3.0 מ')</option>
@@ -479,8 +480,8 @@ export const WorkshopCutOptimizerView: React.FC = () => {
 
         {/* Saw Blade Kerf */}
         <div>
-          <label className="text-[11px] text-slate-400 block mb-1">
-            עובי להב המסור (Kerf):
+          <label className="text-[11px] text-slate-500 block mb-1">
+            עובי להב (Kerf):
           </label>
           <div className="flex items-center gap-1.5">
             <input
@@ -494,16 +495,16 @@ export const WorkshopCutOptimizerView: React.FC = () => {
                   kerfMm: Math.max(0, Number(e.target.value)),
                 })
               }
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums text-slate-800"
             />
-            <span className="text-xs text-slate-400">מ"מ</span>
+            <span className="text-xs text-slate-500">מ"מ</span>
           </div>
         </div>
 
         {/* Edge Trim (Squaring Cut) */}
         <div>
-          <label className="text-[11px] text-slate-400 block mb-1">
-            יישור קצה פגום (Edge Trim):
+          <label className="text-[11px] text-slate-500 block mb-1">
+            יישור קצה (Trim):
           </label>
           <div className="flex items-center gap-1.5">
             <input
@@ -517,9 +518,9 @@ export const WorkshopCutOptimizerView: React.FC = () => {
                   edgeTrimMm: Math.max(0, Number(e.target.value)),
                 })
               }
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums text-slate-800"
             />
-            <span className="text-xs text-slate-400">מ"מ</span>
+            <span className="text-xs text-slate-500">מ"מ</span>
           </div>
         </div>
 
@@ -536,9 +537,7 @@ export const WorkshopCutOptimizerView: React.FC = () => {
               }
               className="accent-amber-500 w-4 h-4"
             />
-            <span className="text-slate-200">
-              חיתוך גרונג משותף (Nested 45°)
-            </span>
+            <span className="text-slate-700">גרונג משותף (45°)</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -551,7 +550,7 @@ export const WorkshopCutOptimizerView: React.FC = () => {
               }
               className="accent-amber-500 w-4 h-4"
             />
-            <span className="text-slate-200">שמור על כיוון סיבים בפלטות</span>
+            <span className="text-slate-700">כיוון סיבים בפלטות</span>
           </label>
         </div>
       </div>
@@ -559,14 +558,14 @@ export const WorkshopCutOptimizerView: React.FC = () => {
       {/* Shopping List & Hardware Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: Raw Materials to Buy */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+        <div className="surface-card rounded-2xl p-4 space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-              <ShoppingBag className="w-4 h-4" />
-              רשימת רכש למחסן העצים
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <ShoppingBag className="w-4 h-4 text-amber-500" />
+              רשימת רכש לעצים
             </span>
-            <span className="text-xs font-mono bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded">
-              הערכת מחיר: ~₪{shoppingSummary.totalCostILS}
+            <span className="text-xs font-mono tabular-nums bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded font-bold">
+              ~₪{shoppingSummary.totalCostILS}
             </span>
           </div>
           {shoppingSummary.materials.length === 0 ? (
@@ -576,10 +575,10 @@ export const WorkshopCutOptimizerView: React.FC = () => {
               {shoppingSummary.materials.map((m, i) => (
                 <li
                   key={i}
-                  className="flex items-center justify-between bg-slate-950/70 px-3 py-1.5 rounded-lg border border-slate-800/80"
+                  className="flex items-center justify-between bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200"
                 >
-                  <span className="text-slate-200 font-medium">{m.name}</span>
-                  <span className="font-mono font-bold text-amber-400">
+                  <span className="text-slate-700 font-medium">{m.name}</span>
+                  <span className="font-mono tabular-nums font-bold text-amber-600">
                     {m.count} {m.unitDesc} (~₪{m.estCostILS})
                   </span>
                 </li>
@@ -589,25 +588,24 @@ export const WorkshopCutOptimizerView: React.FC = () => {
         </div>
 
         {/* Card 2: Kreg Pocket Hole Screws & Joinery */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2.5">
-          <div className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
-            <Wrench className="w-4 h-4" />
-            רשימת ברגי Kreg וחיבורים מומלצים
+        <div className="surface-card rounded-2xl p-4 space-y-2.5">
+          <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <Wrench className="w-4 h-4 text-blue-600" />
+            ברגי Kreg וחיבורים
           </div>
           {shoppingSummary.screws.length === 0 ? (
             <p className="text-xs text-slate-400">
-              לא הוגדרו חורי כיס (Kreg) בחלקי הפרויקט. ניתן להפעיל אותם בלחיצה על
-              חלק בעורך ה-3D.
+              ללא חורי כיס מוגדרים.
             </p>
           ) : (
             <ul className="space-y-1.5 text-xs">
               {shoppingSummary.screws.map(([desc, count], i) => (
                 <li
                   key={i}
-                  className="flex items-center justify-between bg-sky-950/30 border border-sky-500/30 px-3 py-1.5 rounded-lg"
+                  className="flex items-center justify-between bg-blue-50/60 border border-blue-200 px-3 py-1.5 rounded-lg"
                 >
-                  <span className="text-sky-100">{desc}</span>
-                  <span className="font-mono font-bold text-amber-300 shrink-0 mr-2">
+                  <span className="text-slate-800">{desc}</span>
+                  <span className="font-mono tabular-nums font-bold text-blue-700 shrink-0 ms-2">
                     {count} ברגים
                   </span>
                 </li>
@@ -617,33 +615,33 @@ export const WorkshopCutOptimizerView: React.FC = () => {
         </div>
 
         {/* Card 3: Optimization Stats */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2.5">
-          <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4" />
-            סיכום אופטימיזציה ופחת
+        <div className="surface-card rounded-2xl p-4 space-y-2.5">
+          <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            סיכום אופטימיזציה
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
-              <div className="text-slate-400 text-[11px]">קבוצות חיתוך (A-Z)</div>
-              <div className="text-lg font-mono font-bold text-white">
-                {groups.length} קבוצות
+          <div className="grid grid-cols-2 gap-2 text-xs tabular-nums">
+            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <div className="text-slate-500 text-[11px]">קבוצות (A-Z)</div>
+              <div className="text-lg font-mono font-bold text-slate-900">
+                {groups.length}
               </div>
             </div>
-            <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
-              <div className="text-slate-400 text-[11px]">סה"כ חלקים לניסור</div>
-              <div className="text-lg font-mono font-bold text-amber-400">
+            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <div className="text-slate-500 text-[11px]">סה"כ חלקים</div>
+              <div className="text-lg font-mono font-bold text-amber-600">
                 {parts.filter((p) => p.visible).length} יח'
               </div>
             </div>
-            <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
-              <div className="text-slate-400 text-[11px]">קורות גלם נדרשות</div>
-              <div className="text-base font-mono font-bold text-emerald-400">
+            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <div className="text-slate-500 text-[11px]">קורות גלם</div>
+              <div className="text-base font-mono font-bold text-emerald-600">
                 {lumberBars.length} קורות
               </div>
             </div>
-            <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
-              <div className="text-slate-400 text-[11px]">פלטות 1220×2440</div>
-              <div className="text-base font-mono font-bold text-sky-400">
+            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <div className="text-slate-500 text-[11px]">פלטות 1220×2440</div>
+              <div className="text-base font-mono font-bold text-blue-600">
                 {sheetBoards.length} פלטות
               </div>
             </div>
@@ -652,37 +650,34 @@ export const WorkshopCutOptimizerView: React.FC = () => {
       </div>
 
       {/* SECTION A: Grouped BOM / Cut List Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Ruler className="w-4 h-4 text-amber-400" />
-            א. טבלת רשימת חיתוך מרוכזת (BOM / Cut List)
+      <div className="surface-card rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <Ruler className="w-4 h-4 text-amber-500" />
+            א. טבלת חיתוך מרוכזת (BOM)
           </h3>
-          <span className="text-xs text-slate-400">
-            כל החלקים הזהים קובצו אוטומטית תחת אות מזהה (A, B, C...)
-          </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
-            <thead className="bg-slate-950 text-slate-300 border-b border-slate-800">
+          <table className="w-full text-start text-xs tabular-nums">
+            <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4">אות מזהה</th>
-                <th className="py-3 px-4">שמות החלקים במודל</th>
+                <th className="py-3 px-4">אות</th>
+                <th className="py-3 px-4">שמות החלקים</th>
                 <th className="py-3 px-4">חומר וחתך</th>
                 <th className="py-3 px-4">כמות</th>
-                <th className="py-3 px-4">אורך חיתוך חיצוני (Long)</th>
-                <th className="py-3 px-4">אורך פנימי (Short)</th>
+                <th className="py-3 px-4">אורך חיצוני</th>
+                <th className="py-3 px-4">אורך פנימי</th>
                 <th className="py-3 px-4">רוחב × עובי</th>
-                <th className="py-3 px-4">זוויות גרונג</th>
-                <th className="py-3 px-4">חורי כיס (Kreg) ומגרעות</th>
+                <th className="py-3 px-4">גרונג</th>
+                <th className="py-3 px-4">עיבודים (Kreg / מגרעת)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/70">
+            <tbody className="divide-y divide-slate-200">
               {groups.map((g) => (
                 <tr
                   key={g.label}
-                  className="hover:bg-slate-800/40 transition text-slate-200"
+                  className="hover:bg-slate-50 text-slate-800"
                 >
                   <td className="py-2.5 px-4">
                     <span className="px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 font-mono font-extrabold text-xs">
@@ -692,43 +687,43 @@ export const WorkshopCutOptimizerView: React.FC = () => {
                   <td className="py-2.5 px-4 font-medium">
                     {g.partNames.join(', ')}
                   </td>
-                  <td className="py-2.5 px-4 text-slate-300">{g.stockName}</td>
-                  <td className="py-2.5 px-4 font-mono font-bold text-amber-400 text-sm">
+                  <td className="py-2.5 px-4 text-slate-600">{g.stockName}</td>
+                  <td className="py-2.5 px-4 font-mono font-bold text-amber-600 text-sm">
                     {g.quantity}×
                   </td>
-                  <td className="py-2.5 px-4 font-mono font-bold text-white">
+                  <td className="py-2.5 px-4 font-mono font-bold text-slate-900">
                     {g.cutLengthMm} מ"מ
                   </td>
-                  <td className="py-2.5 px-4 font-mono text-slate-400">
+                  <td className="py-2.5 px-4 font-mono text-slate-500">
                     {g.innerLengthMm} מ"מ
                   </td>
-                  <td className="py-2.5 px-4 font-mono">
+                  <td className="py-2.5 px-4 font-mono text-slate-700">
                     {g.widthMm} × {g.thicknessMm} מ"מ
                   </td>
                   <td className="py-2.5 px-4 font-mono">
                     {g.miterStartDeg !== 0 || g.miterEndDeg !== 0 ? (
-                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded">
-                        התחלה: {g.miterStartDeg}° | סוף: {g.miterEndDeg}°
+                      <span className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded font-semibold">
+                        {g.miterStartDeg}° / {g.miterEndDeg}°
                       </span>
                     ) : (
-                      <span className="text-slate-500">90° ישר</span>
+                      <span className="text-slate-400">90°</span>
                     )}
                   </td>
                   <td className="py-2.5 px-4">
                     <div className="flex flex-wrap gap-1">
                       {g.hasPocketHoles && g.kregRec && (
-                        <span className="bg-sky-950 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded text-[11px]">
+                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[11px] font-medium">
                           Kreg: ג'יג {g.kregRec.jigSettingMm} | בורג{' '}
                           {g.kregRec.screwLengthMm} מ"מ ({g.pocketHoleCount} יח')
                         </span>
                       )}
                       {g.dadoCount > 0 && (
-                        <span className="bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded text-[11px]">
-                          {g.dadoCount} מגרעות חצי-חצי
+                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[11px] font-medium">
+                          {g.dadoCount} מגרעות
                         </span>
                       )}
                       {!g.hasPocketHoles && g.dadoCount === 0 && (
-                        <span className="text-slate-500">—</span>
+                        <span className="text-slate-400">—</span>
                       )}
                     </div>
                   </td>
@@ -741,50 +736,50 @@ export const WorkshopCutOptimizerView: React.FC = () => {
 
       {/* SECTION B: 1D Bin Packing Diagrams for Dimensional Lumber */}
       {lumberBars.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Scissors className="w-4 h-4 text-amber-400" />
-              ב. מפת ניסור אופטימלית לקורות עץ (1D First-Fit Decreasing Bin Packing)
+        <div className="surface-card rounded-2xl p-4 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Scissors className="w-4 h-4 text-amber-500" />
+              ב. מפת ניסור אופטימלית לקורות (1D)
             </h3>
-            <span className="text-xs text-slate-400">
-              כולל חישוב עובי להב ({optimizerSettings.kerfMm} מ"מ) ויישור קצוות (
-              {optimizerSettings.edgeTrimMm} מ"מ)
+            <span className="text-xs font-mono tabular-nums text-slate-500">
+              להב: {optimizerSettings.kerfMm} מ"מ | יישור קצה:{' '}
+              {optimizerSettings.edgeTrimMm} מ"מ
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {lumberBars.map((bar, idx) => (
               <div
                 key={`${bar.stockId}-${idx}`}
-                className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2"
+                className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2"
               >
-                <div className="flex flex-wrap items-center justify-between text-xs gap-2">
-                  <div className="font-bold text-slate-100">
+                <div className="flex flex-wrap items-center justify-between text-xs gap-2 tabular-nums">
+                  <div className="font-bold text-slate-800">
                     קורה #{idx + 1} – {bar.stockName}{' '}
-                    <span className="text-amber-400 font-mono">
-                      (אורך גלם: {bar.stockLengthMm} מ"מ)
+                    <span className="text-amber-600 font-mono">
+                      ({bar.stockLengthMm} מ"מ)
                     </span>
                   </div>
                   <div className="flex items-center gap-3 font-mono text-xs">
-                    <span className="text-emerald-400">
+                    <span className="text-emerald-700 font-bold">
                       מנוצל: {bar.usedMm} מ"מ ({bar.efficiencyPct}%)
                     </span>
-                    <span className="text-slate-400">
-                      פחת / שארית: {bar.wasteMm} מ"מ
+                    <span className="text-slate-500">
+                      שארית: {bar.wasteMm} מ"מ
                     </span>
                   </div>
                 </div>
 
                 {/* 1D Visual Bar Diagram */}
-                <div className="relative h-12 w-full bg-slate-900 rounded-lg border border-slate-700 overflow-hidden flex items-center">
+                <div className="relative h-12 w-full bg-slate-200/70 rounded-lg border border-slate-300 overflow-hidden flex items-center">
                   {/* Left Edge Trim */}
                   {bar.edgeTrimMm > 0 && (
                     <div
                       style={{
                         width: `${(bar.edgeTrimMm / bar.stockLengthMm) * 100}%`,
                       }}
-                      className="h-full bg-red-950/70 border-l border-red-500/40 shrink-0"
+                      className="h-full bg-red-100 border-e border-red-300 shrink-0"
                       title={`יישור קצה: ${bar.edgeTrimMm} מ"מ`}
                     />
                   )}
@@ -802,18 +797,18 @@ export const WorkshopCutOptimizerView: React.FC = () => {
                           position: 'absolute',
                           left: `${leftPct}%`,
                           width: `${widthPct}%`,
-                          backgroundColor: `${color}30`,
+                          backgroundColor: `${color}28`,
                           borderColor: color,
                         }}
-                        className="h-full border-2 flex flex-col items-center justify-center px-1 overflow-hidden transition hover:brightness-125"
+                        className="h-full border-2 flex flex-col items-center justify-center px-1 overflow-hidden hover:brightness-95"
                         title={`[${cut.groupLabel}] ${cut.partName}: ${cut.lengthMm} מ"מ`}
                       >
-                        <div className="text-[11px] font-mono font-extrabold text-white truncate">
+                        <div className="text-[11px] font-mono tabular-nums font-extrabold text-slate-900 truncate">
                           [{cut.groupLabel}] {cut.lengthMm} מ"מ
                         </div>
-                        <div className="text-[10px] text-slate-300 truncate">
+                        <div className="text-[10px] text-slate-600 truncate">
                           {cut.partName}
-                          {cut.nestedWithPrev ? ' (גרונג משותף 45°)' : ''}
+                          {cut.nestedWithPrev ? ' (45°)' : ''}
                         </div>
                       </div>
                     );
@@ -827,32 +822,29 @@ export const WorkshopCutOptimizerView: React.FC = () => {
 
       {/* SECTION C: 2D Guillotine Bin Packing for Sheet Goods */}
       {sheetBoards.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Layers className="w-4 h-4 text-sky-400" />
-              ג. מפת חיתוך פלטות דו-ממדית (2D Guillotine Bin Packing – 1220×2440 מ"מ)
+        <div className="surface-card rounded-2xl p-4 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-600" />
+              ג. מפת חיתוך פלטות דו-ממדית (2D – 1220×2440 מ"מ)
             </h3>
-            <span className="text-xs text-slate-400">
-              חיתוכי גיליוטינה ישרים המותאמים למסור שולחן / מסור עגול עם מסילה
-            </span>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {sheetBoards.map((board, idx) => (
               <div
                 key={`${board.stockId}-${idx}`}
-                className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3"
+                className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
               >
-                <div className="flex items-center justify-between text-xs">
-                  <div className="font-bold text-slate-100">
+                <div className="flex items-center justify-between text-xs tabular-nums">
+                  <div className="font-bold text-slate-800">
                     פלטה #{idx + 1}: {board.stockName}{' '}
-                    <span className="font-mono text-sky-400">
+                    <span className="font-mono text-blue-600">
                       ({board.sheetLengthMm}×{board.sheetWidthMm} מ"מ)
                     </span>
                   </div>
-                  <span className="font-mono text-emerald-400 font-bold">
-                    ניצולת שטח: {board.efficiencyPct}%
+                  <span className="font-mono text-emerald-700 font-bold">
+                    ניצולת: {board.efficiencyPct}%
                   </span>
                 </div>
 

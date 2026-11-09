@@ -26,15 +26,13 @@ import {
   KeyRound,
   Layers,
   Plus,
-  Recycle,
   RotateCcw,
-  ShieldCheck,
   Sliders,
   Sparkles,
   Trash2,
-  Wand2,
   X,
 } from 'lucide-react';
+import { IconAiBlueprint, IconScrapWood } from '../icons/WoodCraftIcons';
 
 interface Props {
   isOpen: boolean;
@@ -404,27 +402,21 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const lumberStocks = STOCK_LIBRARY.filter((s) => s.category !== 'hardware');
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 select-none">
+      <div className="surface-modal rounded-2xl max-w-5xl w-full overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header with Mode Switcher & Persistent API Key Badge */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-slate-800 bg-gradient-to-l from-amber-500/15 via-slate-950 to-slate-950">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-2.5">
-            <div className="bg-amber-500 text-slate-950 p-2 rounded-xl shadow">
-              <Wand2 className="w-5 h-5" />
+            <div className="bg-amber-500 text-slate-950 p-1.5 rounded-xl shadow-2xs">
+              <IconAiBlueprint className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-                <span>מחולל מוצרים חכם & יועץ פרויקטים משאריות עץ</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Camera className="w-3 h-3" />
-                  בקרת 4 צילומי מסך
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400">
-                ג'נרט כל מוצר מאפס או הזן אילו שאריות עץ פנויות יש לך והמערכת
-                תציע ותתכנן עבורך פרויקטים מותאמים.
-              </p>
-            </div>
+            <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <span>מחולל מוצרים ויועץ שאריות</span>
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Camera className="w-3 h-3" />
+                4 זוויות
+              </span>
+            </h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -432,30 +424,28 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={() => setApiPanelOpen(!apiPanelOpen)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer ${
                 hasSavedKey
-                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/60'
-                  : 'bg-slate-900 text-amber-300 border-amber-500/40 hover:bg-slate-800'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
               }`}
-              title="הגדר מפתח Gemini API קבוע שיישמר אוטומטית בזיכרון המקומי (localStorage)"
+              title="הגדר מפתח Gemini API קבוע"
             >
               <KeyRound className="w-3.5 h-3.5" />
-              {hasSavedKey
-                ? 'מפתח API שמור בזיכרון ✓'
-                : 'הגדר מפתח API קבוע'}
+              {hasSavedKey ? 'API מחובר' : 'מפתח API'}
             </button>
 
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white p-1.5 rounded-lg cursor-pointer"
+              className="text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 p-1.5 rounded-lg cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Top Mode Tabs: 1. ג'ינרוט מוצר חופשי | 2. מה אפשר לבנות מהעצים שלי? */}
-        <div className="px-5 pt-2.5 bg-slate-950 border-b border-slate-800 flex items-center gap-2">
+        {/* Top Mode Tabs */}
+        <div className="px-5 pt-2 bg-slate-100/80 border-b border-slate-200 flex items-center gap-2">
           <button
             type="button"
             onClick={() => {
@@ -463,14 +453,14 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
               setAiError(null);
               setActiveTab('generate');
             }}
-            className={`px-4 py-2 rounded-t-xl text-xs font-extrabold flex items-center gap-2 border-t border-x transition cursor-pointer ${
+            className={`px-4 py-2 rounded-t-xl text-xs font-extrabold flex items-center gap-2 border-t border-x cursor-pointer ${
               activeTab === 'generate'
-                ? 'bg-slate-900 text-amber-400 border-slate-700'
-                : 'bg-slate-950 text-slate-400 border-transparent hover:text-slate-200'
+                ? 'bg-white text-amber-600 border-slate-200 shadow-2xs'
+                : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
             }`}
           >
-            <Wand2 className="w-4 h-4" />
-            ג'ינרוט מוצר חופשי / מרשימה
+            <IconAiBlueprint className="w-4 h-4" />
+            מחולל מוצרים
           </button>
 
           <button
@@ -480,24 +470,24 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
               setAiError(null);
               setActiveTab('scrap');
             }}
-            className={`px-4 py-2 rounded-t-xl text-xs font-extrabold flex items-center gap-2 border-t border-x transition cursor-pointer ${
+            className={`px-4 py-2 rounded-t-xl text-xs font-extrabold flex items-center gap-2 border-t border-x cursor-pointer ${
               activeTab === 'scrap'
-                ? 'bg-slate-900 text-emerald-400 border-slate-700'
-                : 'bg-slate-950 text-slate-400 border-transparent hover:text-slate-200'
+                ? 'bg-white text-emerald-600 border-slate-200 shadow-2xs'
+                : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
             }`}
           >
-            <Recycle className="w-4 h-4" />
-            יש לי שאריות עץ — מה אפשר לבנות איתן?
+            <IconScrapWood className="w-4 h-4" />
+            יועץ שאריות עץ
           </button>
         </div>
 
         {/* Collapsible Persistent API Key Bar */}
         {(apiPanelOpen || !hasSavedKey) && (
-          <div className="px-5 py-2 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs text-slate-300">
-              <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="font-bold text-amber-300">
-                מפתח Gemini API קבוע (מזהה אוטומטית את המודלים הפעילים בחשבונך):
+          <div className="px-5 py-2 bg-amber-50/60 border-b border-amber-200/70 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-slate-700">
+              <KeyRound className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="font-bold text-slate-800">
+                מפתח Gemini API:
               </span>
             </div>
 
@@ -507,13 +497,13 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   type={showKeyText ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="הדבק כאן Gemini API Key — יישמר קבוע בזיכרון המקומי..."
-                  className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg pl-8 pr-3 py-1.5 text-xs font-mono text-slate-100 focus:outline-none"
+                  placeholder="הדבק כאן Gemini API Key..."
+                  className="w-full bg-white border border-slate-300 focus:border-amber-500 rounded-lg ps-3 pe-8 py-1.5 text-xs font-mono text-slate-800 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKeyText(!showKeyText)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                  className="absolute end-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
                   title={showKeyText ? 'הסתר מפתח' : 'הצג מפתח'}
                 >
                   {showKeyText ? (
@@ -528,18 +518,18 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 type="button"
                 onClick={handleSaveApiKeyExplicit}
                 disabled={!apiKey.trim()}
-                className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition cursor-pointer shrink-0"
+                className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer shrink-0"
               >
                 <Check className="w-3.5 h-3.5" />
-                {keySavedFlash ? 'נשמר קבוע!' : 'שמור בזיכרון'}
+                {keySavedFlash ? 'נשמר!' : 'שמור'}
               </button>
 
               {hasSavedKey && (
                 <button
                   type="button"
                   onClick={handleClearApiKey}
-                  className="bg-slate-800 hover:bg-red-950/80 text-slate-300 hover:text-red-300 p-1.5 rounded-lg text-xs border border-slate-700 transition cursor-pointer"
-                  title="מחק מפתח מהזיכרון המקומי"
+                  className="bg-white hover:bg-red-50 text-slate-500 hover:text-red-600 p-1.5 rounded-lg text-xs border border-slate-200 cursor-pointer"
+                  title="מחק מפתח"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -549,23 +539,23 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
         )}
 
         {/* Body */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+        <div className="p-5 overflow-y-auto space-y-4 flex-1 bg-white">
           {activeTab === 'generate' ? (
             <>
               {/* TAB 1: STANDARD PRODUCT GENERATOR */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-amber-400">
-                    1. בחר מוצר מוכן מהרשימה או כתוב חופשי למטה (ללא צורך בהזנת מידות):
+                  <label className="text-xs font-bold text-slate-700">
+                    תבניות מהירות:
                   </label>
                   {(activePrompt || aiOverrideResult) && (
                     <button
                       type="button"
                       onClick={handleResetClean}
-                      className="text-xs text-slate-400 hover:text-white flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer"
+                      className="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg border border-slate-200 cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
-                      נקה והתחל מחדש
+                      נקה
                     </button>
                   )}
                 </div>
@@ -579,10 +569,10 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         key={preset.id}
                         type="button"
                         onClick={() => handleSelectPreset(preset)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer ${
                           isActive
-                            ? 'bg-amber-500 text-slate-950 border-amber-300 shadow-lg'
-                            : 'bg-slate-950/80 hover:bg-slate-800 text-slate-200 border-slate-800'
+                            ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-2xs'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                         }`}
                       >
                         {preset.label}
@@ -593,10 +583,10 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div className="md:col-span-7 bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-3">
+                <div className="md:col-span-7 bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-200 block mb-1.5">
-                      תיאור המוצר המבוקש (חופשי בעברית — אפשר עם או בלי מידות):
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      תיאור המוצר:
                     </label>
                     <textarea
                       rows={2}
@@ -607,15 +597,15 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         setVisionCustomSummary(null);
                         setPrompt(e.target.value);
                       }}
-                      placeholder="כתוב כאן מה תרצה לבנות... למשל: נדנדת גינה תלויה לתינוקות, שולחן קפה מאלון, פרגולה, ספסל גינה..."
-                      className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-xl p-2.5 text-xs text-white focus:outline-none resize-none"
+                      placeholder="למשל: נדנדת גינה תלויה, שולחן קפה מאלון, פרגולה, ספסל גינה..."
+                      className="w-full bg-white border border-slate-300 focus:border-amber-500 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none resize-none"
                     />
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-slate-400 ml-1">
-                        סוג עץ:
+                      <span className="text-xs font-bold text-slate-500 me-1">
+                        עץ:
                       </span>
                       {(
                         [
@@ -631,10 +621,10 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                             setAiOverrideResult(null);
                             setSpecies(sp.id);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border cursor-pointer ${
                             species === sp.id
-                              ? 'bg-amber-500/25 text-amber-300 border-amber-500'
-                              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                              ? 'bg-amber-100 text-amber-800 border-amber-400'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
                           {sp.label}
@@ -646,46 +636,46 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       type="button"
                       disabled={!!loadingStage || !activePrompt}
                       onClick={handleRunCloudVisionGenerate}
-                      className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
+                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      ג'נרט ב-AI חופשי + בדיקת צילומים
+                      בנה ב-AI
                     </button>
                   </div>
 
                   {loadingStage && (
-                    <div className="text-xs text-purple-300 font-semibold animate-pulse bg-purple-950/40 border border-purple-500/30 rounded-lg px-3 py-1.5">
+                    <div className="text-xs text-blue-700 font-semibold animate-pulse bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
                       {loadingStage}
                     </div>
                   )}
                   {aiError && (
-                    <div className="text-xs text-red-300 font-semibold bg-red-950/40 border border-red-500/30 rounded-lg px-3 py-1.5">
+                    <div className="text-xs text-red-700 font-semibold bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
                       {aiError}
                     </div>
                   )}
                 </div>
 
-                <div className="md:col-span-5 bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between space-y-2.5">
+                <div className="md:col-span-5 bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                      קביעת מידות:
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-amber-500" />
+                      מידות:
                     </span>
 
-                    <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[11px]">
+                    <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg border border-slate-300/80 text-[11px]">
                       <button
                         type="button"
                         onClick={() => {
                           setAiOverrideResult(null);
                           setUseCustomDimensions(false);
                         }}
-                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-md font-bold cursor-pointer ${
                           !useCustomDimensions
-                            ? 'bg-emerald-500 text-slate-950 shadow'
-                            : 'text-slate-400 hover:text-white'
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        אוטומטי (ללא הגבלה)
+                        אוטומטי
                       </button>
                       <button
                         type="button"
@@ -693,33 +683,26 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           setAiOverrideResult(null);
                           setUseCustomDimensions(true);
                         }}
-                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-md font-bold cursor-pointer ${
                           useCustomDimensions
-                            ? 'bg-amber-500 text-slate-950 shadow'
-                            : 'text-slate-400 hover:text-white'
+                            ? 'bg-amber-500 text-slate-950 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        התאמה ידנית
+                        ידני
                       </button>
                     </div>
                   </div>
 
                   {!useCustomDimensions ? (
-                    <div className="flex-1 flex flex-col justify-center bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 text-xs text-slate-300 space-y-1">
-                      <div className="font-bold text-emerald-300 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        פרופורציות חכמות אוטומטיות (ללא הגבלת סליידרים)
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        המערכת קובעת אוטומטית את המידות האופטימליות לפי תיאור
-                        המוצר שכתבת. תוכל תמיד למתוח ולשנות כל קורה גם בעורך
-                        התלת-ממד.
-                      </p>
+                    <div className="flex-1 flex items-center justify-center bg-white border border-slate-200 rounded-xl p-3 text-xs text-emerald-700 font-bold gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>פרופורציות אוטומטיות לפי סוג המוצר</span>
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-2 pt-1">
                       <div>
-                        <label className="text-[11px] text-slate-400 block mb-1">
+                        <label className="text-[11px] text-slate-500 block mb-1">
                           רוחב (ס"מ):
                         </label>
                         <input
@@ -733,11 +716,11 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                               Math.max(200, Number(e.target.value || 100) * 10)
                             );
                           }}
-                          className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-amber-300"
+                          className="w-full bg-white border border-slate-300 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-mono tabular-nums font-bold text-slate-800"
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-400 block mb-1">
+                        <label className="text-[11px] text-slate-500 block mb-1">
                           עומק (ס"מ):
                         </label>
                         <input
@@ -751,11 +734,11 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                               Math.max(200, Number(e.target.value || 80) * 10)
                             );
                           }}
-                          className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-amber-300"
+                          className="w-full bg-white border border-slate-300 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-mono tabular-nums font-bold text-slate-800"
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-400 block mb-1">
+                        <label className="text-[11px] text-slate-500 block mb-1">
                           גובה (ס"מ):
                         </label>
                         <input
@@ -769,7 +752,7 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                               Math.max(200, Number(e.target.value || 80) * 10)
                             );
                           }}
-                          className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-amber-300"
+                          className="w-full bg-white border border-slate-300 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-mono tabular-nums font-bold text-slate-800"
                         />
                       </div>
                     </div>
@@ -779,19 +762,19 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </>
           ) : (
             <>
-              {/* TAB 2: SCRAP WOOD ADVISOR ("מה אפשר לבנות מהעצים שלי?") */}
+              {/* TAB 2: SCRAP WOOD ADVISOR */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Left Column: Scrap Inventory Input (5 cols) */}
-                <div className="lg:col-span-5 bg-slate-950/70 border border-emerald-500/30 rounded-xl p-3.5 space-y-3">
+                <div className="lg:col-span-5 bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-emerald-300 flex items-center gap-1.5">
-                      <Recycle className="w-4 h-4" />
-                      1. אילו עצים פנויים / שאריות יש לך?
+                    <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                      <IconScrapWood className="w-4 h-4 text-emerald-600" />
+                      מלאי שאריות עץ:
                     </span>
                     <button
                       type="button"
                       onClick={handleAddScrapRow}
-                      className="bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                      className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3 h-3" />
                       הוסף קורה
@@ -807,24 +790,24 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleParseFreeScrapText();
                       }}
-                      placeholder="או כתוב חופשי: 3 אורן 5x10 באורך 140, 4 לוחות דק 120 ס״מ..."
-                      className="flex-1 bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                      placeholder="הזנה מהירה: 3 אורן 5x10 באורך 140..."
+                      className="flex-1 bg-white border border-slate-300 focus:border-emerald-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none"
                     />
                     <button
                       type="button"
                       onClick={handleParseFreeScrapText}
-                      className="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 cursor-pointer"
+                      className="bg-slate-200 hover:bg-slate-300 text-slate-800 px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 cursor-pointer"
                     >
-                      פענח טקסט
+                      פענח
                     </button>
                   </div>
 
                   {/* Structured Scrap Rows */}
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pe-0.5">
                     {scrapItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-xs"
+                        className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg p-1.5 text-xs"
                       >
                         <select
                           value={item.stockId}
@@ -833,7 +816,7 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                               stockId: e.target.value,
                             })
                           }
-                          className="bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-200 flex-1 min-w-0"
+                          className="bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-[11px] text-slate-800 flex-1 min-w-0"
                         >
                           {lumberStocks.map((st) => (
                             <option key={st.id} value={st.id}>
@@ -843,8 +826,8 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         </select>
 
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[10px] text-slate-400">
-                            אורך (ס"מ):
+                          <span className="text-[10px] text-slate-500">
+                            ס"מ:
                           </span>
                           <input
                             type="number"
@@ -858,12 +841,12 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                   10,
                               })
                             }
-                            className="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-center font-mono font-bold text-amber-300"
+                            className="w-14 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-center font-mono tabular-nums font-bold text-slate-800"
                           />
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-500">
                             כמות:
                           </span>
                           <input
@@ -879,7 +862,7 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                 ),
                               })
                             }
-                            className="w-11 bg-slate-950 border border-slate-700 rounded px-1 py-1 text-center font-mono font-bold text-emerald-300"
+                            className="w-11 bg-slate-50 border border-slate-200 rounded px-1 py-1 text-center font-mono tabular-nums font-bold text-emerald-700"
                           />
                         </div>
 
@@ -887,7 +870,7 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           <button
                             type="button"
                             onClick={() => handleRemoveScrapRow(item.id)}
-                            className="text-slate-500 hover:text-red-400 p-1 cursor-pointer"
+                            className="text-slate-400 hover:text-red-500 p-1 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -897,39 +880,34 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Optional AI Custom Invention from Scrap */}
-                  <div className="pt-1 flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-slate-400">
-                      רוצה שה-AI ימציא פרויקט ייחודי מהשאריות האלו?
-                    </span>
+                  <div className="pt-1 flex items-center justify-end gap-2">
                     <button
                       type="button"
                       disabled={!!loadingStage}
                       onClick={handleRunCloudVisionGenerate}
-                      className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow cursor-pointer shrink-0"
+                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      המצא פרויקט ב-AI מהשאריות
+                      בנה פרויקט ב-AI
                     </button>
                   </div>
 
                   {loadingStage && (
-                    <div className="text-xs text-purple-300 font-semibold animate-pulse bg-purple-950/40 border border-purple-500/30 rounded-lg px-3 py-1.5">
+                    <div className="text-xs text-blue-700 font-semibold animate-pulse bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
                       {loadingStage}
                     </div>
                   )}
                   {aiError && (
-                    <div className="text-xs text-red-300 font-semibold bg-red-950/40 border border-red-500/30 rounded-lg px-3 py-1.5">
+                    <div className="text-xs text-red-700 font-semibold bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
                       {aiError}
                     </div>
                   )}
                 </div>
 
                 {/* Right Column: 4 Tailored Project Suggestions (7 cols) */}
-                <div className="lg:col-span-7 bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-                  <div className="text-xs font-extrabold text-amber-400 flex items-center justify-between">
-                    <span>
-                      2. פרויקטים מומלצים שמותאמים אוטומטית למידות השאריות שלך (לחץ לתצוגת 4 זוויות):
-                    </span>
+                <div className="lg:col-span-7 bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                  <div className="text-xs font-extrabold text-slate-800">
+                    פרויקטים מותאמים למלאי:
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -945,28 +923,21 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                             setVisionCustomSummary(null);
                             setSelectedScrapProjectId(sug.id);
                           }}
-                          className={`text-right p-3 rounded-xl border transition flex flex-col justify-between gap-2 cursor-pointer ${
+                          className={`text-start p-3 rounded-xl border flex flex-col justify-between gap-2 cursor-pointer ${
                             isSelected
-                              ? 'bg-emerald-950/60 border-emerald-400 shadow-lg ring-1 ring-emerald-400/50'
-                              : 'bg-slate-900/90 hover:bg-slate-800/80 border-slate-800'
+                              ? 'bg-emerald-50/70 border-emerald-500 shadow-2xs ring-1 ring-emerald-500/30'
+                              : 'bg-white hover:bg-slate-100/70 border-slate-200'
                           }`}
                         >
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-xs font-extrabold text-white">
-                                {sug.titleHe}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 leading-snug">
-                              {sug.descriptionHe}
-                            </p>
-                          </div>
+                          <span className="text-xs font-extrabold text-slate-900">
+                            {sug.titleHe}
+                          </span>
 
-                          <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-slate-800/80">
-                            <span className="text-emerald-300 font-bold">
-                              ניצול שאריות: {sug.utilizationPct}%
+                          <div className="flex items-center justify-between text-[10px] font-mono tabular-nums pt-1 border-t border-slate-200">
+                            <span className="text-emerald-700 font-bold">
+                              ניצול: {sug.utilizationPct}%
                             </span>
-                            <span className="text-amber-300">
+                            <span className="text-amber-600 font-semibold">
                               {sug.difficultyHe}
                             </span>
                           </div>
@@ -981,37 +952,29 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
           {/* 3. MULTI-ANGLE SCREENSHOT VISUAL INSPECTOR */}
           {!product || !visualReport ? (
-            <div className="bg-slate-950/60 border border-dashed border-slate-800 rounded-2xl p-8 text-center space-y-2">
-              <Wand2 className="w-8 h-8 text-amber-400 mx-auto opacity-80" />
-              <div className="text-sm font-bold text-slate-200">
-                מוכן לג'ינרוט נקי — בחר מוצר מהרשימה למעלה או הקלד תיאור חופשי
+            <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-6 text-center space-y-1.5">
+              <IconAiBlueprint className="w-7 h-7 text-amber-500 mx-auto" />
+              <div className="text-xs font-bold text-slate-700">
+                בחר תבנית או הקלד תיאור לתצוגת 4 זוויות
               </div>
-              <p className="text-xs text-slate-400 max-w-lg mx-auto">
-                ברגע שתבחר או תקליד מוצר, המערכת תבנה אותו בתלת-ממד, תצלם 4
-                צילומי מסך אמיתיים מכל הזוויות (איזומטרי 45°, חזית, צד ומבט על)
-                ותוודא שאין קרשים בולטים או חלקים מרחפים.
-              </p>
             </div>
           ) : (
-            <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
-                <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-300">
-                  <Eye className="w-4 h-4 text-emerald-400" />
-                  <span>
-                    בקרת איכות ויזואלית מ-4 זוויות צילום עבור:{' '}
-                    <span className="text-white underline decoration-amber-500/60">
-                      {product.productName}
-                    </span>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
+                  <Eye className="w-4 h-4 text-emerald-600" />
+                  <span className="text-slate-950 underline decoration-amber-500">
+                    {product.productName}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-mono">
-                  <span className="bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2.5 py-0.5 rounded-full font-bold">
-                    ציון התאמה ויזואלי: {visualReport.overallVisualScorePct}% ✅
+                <div className="flex items-center gap-2 text-xs font-mono tabular-nums">
+                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {visualReport.overallVisualScorePct}%
                   </span>
-                  <span className="bg-slate-900 text-sky-300 border border-slate-700 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
-                    <Layers className="w-3.5 h-3.5" />
-                    {product.parts.length} חלקים ב-{product.groups.length}{' '}
-                    קבוצות
+                  <span className="bg-white text-slate-700 border border-slate-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                    <Layers className="w-3.5 h-3.5 text-blue-600" />
+                    {product.parts.length} חלקים
                   </span>
                 </div>
               </div>
@@ -1021,33 +984,31 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 {visualReport.screenshots.map((shot) => (
                   <div
                     key={shot.id}
-                    className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-md"
+                    className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col shadow-2xs"
                   >
-                    <div className="px-2.5 py-1.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-200">
+                    <div className="px-2.5 py-1.5 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-800">
                         {shot.titleHe}
                       </span>
-                      <span className="text-[9px] font-mono text-amber-400">
+                      <span className="text-[9px] font-mono text-slate-500">
                         {shot.subtitleEn}
                       </span>
                     </div>
 
-                    <div className="relative bg-slate-950 aspect-[380/260] w-full flex items-center justify-center">
+                    <div className="relative bg-slate-50 aspect-[380/260] w-full flex items-center justify-center">
                       <img
                         src={shot.dataUrl}
                         alt={shot.titleHe}
                         className="w-full h-full object-contain"
                       />
-                      <div className="absolute bottom-1.5 right-1.5 left-1.5 flex items-center justify-between text-[10px] font-mono bg-slate-950/85 backdrop-blur-sm px-2 py-0.5 rounded border border-slate-800">
-                        <span className="text-emerald-400 flex items-center gap-1">
+                      <div className="absolute bottom-1.5 inset-x-1.5 flex items-center justify-between text-[10px] font-mono tabular-nums bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+                        <span className="text-emerald-700 font-bold flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
-                          {shot.hasFloatingGap
-                            ? 'תוקן ריחוף'
-                            : 'רציף וללא בליטות'}
+                          {shot.hasFloatingGap ? 'תוקן ריחוף' : 'יציב'}
                         </span>
                         {(shot.id === 'front' || shot.id === 'top') && (
-                          <span className="text-sky-300">
-                            סימטריה: {shot.symmetryScorePct}%
+                          <span className="text-blue-600 font-bold">
+                            {shot.symmetryScorePct}%
                           </span>
                         )}
                       </div>
@@ -1055,52 +1016,30 @@ export const ProductGeneratorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   </div>
                 ))}
               </div>
-
-              {/* Summary of visual & geometric inspection */}
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-950/30 border border-emerald-500/30 rounded-lg px-3 py-2 text-xs text-emerald-100">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>
-                    {visionCustomSummary ||
-                      visualReport.visionCritiqueSummaryHe}
-                  </span>
-                </div>
-                {visualReport.visualFixesApplied.length > 0 && (
-                  <span className="text-[11px] text-amber-300 font-semibold">
-                    ({visualReport.visualFixesApplied.join(' | ')})
-                  </span>
-                )}
-              </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
-          <span className="text-xs text-slate-400">
-            לאחר הפתיחה בעורך התלת-ממד תוכל להזיז, למתוח, לסובב ולשנות כל קורה
-            כראות עיניך.
-          </span>
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
-            >
-              ביטול
-            </button>
-            <button
-              type="button"
-              disabled={!!loadingStage || !product}
-              onClick={handleApplyToWorkspace}
-              className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 px-5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg transition cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              {product
-                ? `אשר ופתח בעורך התלת-ממד (${product.parts.length} חלקים)`
-                : 'בחר או הקלד מוצר לג׳ינרוט'}
-            </button>
-          </div>
+        <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+          >
+            ביטול
+          </button>
+          <button
+            type="button"
+            disabled={!!loadingStage || !product}
+            onClick={handleApplyToWorkspace}
+            className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 px-5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-2xs cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4" />
+            {product
+              ? `פתח במשטח העבודה (${product.parts.length} חלקים)`
+              : 'בחר מוצר'}
+          </button>
         </div>
       </div>
     </div>

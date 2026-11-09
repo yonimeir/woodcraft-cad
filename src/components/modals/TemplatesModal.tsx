@@ -37,18 +37,13 @@ export const TemplatesModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 select-none">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center gap-2.5">
-            <IconTemplatesGrid size={20} className="text-amber-600" />
-            <div>
-              <h2 className="text-sm font-extrabold text-slate-900">
-                ספריית תבניות מוכנות
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                בחר תבנית נגרות מאומתת לטעינה למשטח העבודה
-              </p>
-            </div>
+      <div className="surface-modal rounded-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[88vh]">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
+          <div className="flex items-center gap-2">
+            <IconTemplatesGrid size={18} className="text-amber-600" />
+            <h2 className="text-sm font-extrabold text-slate-900">
+              תבניות מוכנות
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -75,14 +70,14 @@ export const TemplatesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   requestCameraView('iso');
                   onClose();
                 }}
-                className="group bg-white hover:bg-amber-50/30 border border-slate-200 hover:border-amber-400 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 transition cursor-pointer shadow-xs"
+                className="group surface-card hover:bg-amber-50/30 hover:border-amber-400 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 cursor-pointer"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
                       {tmpl.badge}
                     </span>
-                    <span className="text-[11px] font-mono text-emerald-600 font-bold flex items-center gap-1">
+                    <span className="text-[11px] font-mono tabular-nums text-emerald-600 font-bold flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       {tmpl.visualReport.overallVisualScorePct}%
                     </span>
@@ -91,25 +86,25 @@ export const TemplatesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   {/* 3D Screenshots Preview */}
                   <div className="grid grid-cols-2 gap-2">
                     {isoShot && (
-                      <div className="bg-slate-900 border border-slate-200 rounded-lg overflow-hidden relative aspect-[380/240]">
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden relative aspect-[380/240]">
                         <img
                           src={isoShot.dataUrl}
                           alt={tmpl.name}
                           className="w-full h-full object-contain"
                         />
-                        <span className="absolute bottom-1 right-1.5 text-[9px] font-mono bg-white/90 text-slate-800 px-1.5 py-0.5 rounded font-bold">
+                        <span className="absolute bottom-1 start-1.5 text-[9px] font-mono tabular-nums bg-white/95 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold">
                           45°
                         </span>
                       </div>
                     )}
                     {frontShot && (
-                      <div className="bg-slate-900 border border-slate-200 rounded-lg overflow-hidden relative aspect-[380/240]">
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden relative aspect-[380/240]">
                         <img
                           src={frontShot.dataUrl}
                           alt={tmpl.name}
                           className="w-full h-full object-contain"
                         />
-                        <span className="absolute bottom-1 right-1.5 text-[9px] font-mono bg-white/90 text-slate-800 px-1.5 py-0.5 rounded font-bold">
+                        <span className="absolute bottom-1 start-1.5 text-[9px] font-mono bg-white/95 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold">
                           חזית
                         </span>
                       </div>
@@ -117,16 +112,16 @@ export const TemplatesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-amber-600 transition">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-amber-600">
                       {tmpl.name}
                     </h3>
-                    <span className="text-[11px] font-mono text-slate-500">
+                    <span className="text-[11px] font-mono tabular-nums text-slate-500">
                       {tmpl.parts.length} חלקים
                     </span>
                   </div>
                 </div>
 
-                <button className="w-full bg-slate-100 group-hover:bg-amber-500 text-slate-800 group-hover:text-white font-bold py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <button className="w-full bg-slate-100 group-hover:bg-amber-500 text-slate-800 group-hover:text-slate-950 font-bold py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer">
                   <Check className="w-4 h-4" />
                   טען תבנית
                 </button>
@@ -141,7 +136,7 @@ export const TemplatesModal: React.FC<Props> = ({ isOpen, onClose }) => {
               clearWorkspace();
               onClose();
             }}
-            className="text-xs font-bold text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+            className="text-xs font-bold text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             נקה משטח עבודה

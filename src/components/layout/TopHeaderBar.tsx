@@ -172,11 +172,11 @@ export const TopHeaderBar: React.FC = () => {
   );
 
   const iconBtnClass = (active = false, disabled = false) =>
-    `h-8 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-semibold transition border ${
+    `h-8 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-semibold border ${
       disabled
         ? 'opacity-35 pointer-events-none text-slate-400 border-transparent'
         : active
-        ? 'bg-amber-500 text-white border-amber-600 shadow-sm cursor-pointer'
+        ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-2xs cursor-pointer'
         : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200/90 hover:border-slate-300 cursor-pointer'
     }`;
 
@@ -187,7 +187,7 @@ export const TopHeaderBar: React.FC = () => {
         <header className="h-11.5 px-3.5 flex items-center justify-between gap-3 border-b border-slate-100">
           {/* Right: WoodCraft Brand Icon + Project Name Pill */}
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-2 bg-amber-500 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+            <div className="flex items-center gap-2 bg-amber-500 text-slate-950 px-2.5 py-1 rounded-lg shadow-2xs">
               <IconWoodCraftLogo size={18} />
               <span className="text-xs font-extrabold tracking-tight">
                 WoodCraft
@@ -198,7 +198,7 @@ export const TopHeaderBar: React.FC = () => {
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className="bg-slate-100 hover:bg-slate-200/70 focus:bg-white border border-transparent focus:border-amber-500 rounded-full px-3 py-1 text-xs font-bold text-slate-800 w-44 focus:outline-none transition"
+              className="bg-slate-100 hover:bg-slate-200/70 focus:bg-white border border-transparent focus:border-amber-500 rounded-full px-3 py-1 text-xs font-bold text-slate-800 w-44 focus:outline-none"
               title="שם הפרויקט"
             />
           </div>
@@ -210,7 +210,7 @@ export const TopHeaderBar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveView('3d')}
-                className={`px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                className={`px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
                   activeView === '3d'
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -222,14 +222,14 @@ export const TopHeaderBar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveView('workshop')}
-                className={`px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                className={`px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
                   activeView === 'workshop'
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Scissors className="w-3.5 h-3.5 text-amber-600" />
-                <span>תוכנית חיתוך ו-BOM</span>
+                <span>תוכנית חיתוך</span>
               </button>
             </div>
 
@@ -239,8 +239,8 @@ export const TopHeaderBar: React.FC = () => {
             <button
               type="button"
               onClick={() => setGeneratorOpen(true)}
-              className="h-8 bg-amber-500 hover:bg-amber-600 text-white px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
-              title="מחולל מוצרים חכם ויועץ פרויקטים משאריות עץ"
+              className="h-8 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 rounded-lg text-xs font-extrabold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="מחולל מוצרים ויועץ שאריות"
             >
               <IconAiBlueprint size={16} />
               <span>מחולל הנדסי</span>
@@ -250,57 +250,53 @@ export const TopHeaderBar: React.FC = () => {
             <button
               type="button"
               onClick={() => setTemplatesOpen(true)}
-              className="h-8 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-              title="תבניות נגרות מוכנות"
+              className="h-8 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              title="תבניות מוכנות"
             >
               <IconTemplatesGrid size={16} />
               <span>תבניות</span>
             </button>
 
-            {/* Import / Export Menu (with clear file format explanations) */}
+            {/* Import / Export Menu (Compact Single-Line Format Badges) */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIoMenuOpen((v) => !v)}
-                className="h-8 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="שמירה, פתיחה וייצוא קבצים (.woodjson / .OBJ / .PDF)"
+                className="h-8 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                title="קבצים וייצוא"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>קבצים וייצוא</span>
+                <span>ייצוא / ייבוא</span>
               </button>
 
               {ioMenuOpen && (
-                <div className="absolute left-0 top-10 w-64 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-50 text-xs space-y-1">
+                <div className="absolute end-0 top-10 w-56 surface-modal rounded-xl p-1.5 z-50 text-xs space-y-0.5">
                   <button
                     type="button"
                     onClick={handleSaveJson}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-right cursor-pointer"
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-800 text-start cursor-pointer"
                   >
-                    <Download className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-900">
-                        שמור קובץ פרויקט (.woodjson)
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        גיבוי מלא של כל הקורות והקבוצות לעריכה עתידית
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-2 font-bold">
+                      <Download className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      שמור פרויקט
+                    </span>
+                    <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                      .woodjson
+                    </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-right cursor-pointer"
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-800 text-start cursor-pointer"
                   >
-                    <Upload className="w-4 h-4 text-sky-600 shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-900">
-                        פתח קובץ פרויקט (.woodjson)
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        טעינת פרויקט שמור מהמחשב
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-2 font-bold">
+                      <Upload className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                      פתח פרויקט
+                    </span>
+                    <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                      .woodjson
+                    </span>
                   </button>
 
                   <div className="h-px bg-slate-100 my-1" />
@@ -309,17 +305,15 @@ export const TopHeaderBar: React.FC = () => {
                     type="button"
                     onClick={handleExportOBJ}
                     disabled={parts.length === 0}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 text-slate-700 text-right cursor-pointer"
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-100 disabled:opacity-40 text-slate-800 text-start cursor-pointer"
                   >
-                    <FileCode2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-900">
-                        ייצא מודל תלת-ממדי (.OBJ)
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        קובץ 3D אוניברסלי ל-SketchUp, Fusion 360 או הדפסה
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-2 font-bold">
+                      <FileCode2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      ייצא מודל 3D
+                    </span>
+                    <span className="font-mono text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200">
+                      .OBJ
+                    </span>
                   </button>
 
                   <button
@@ -328,17 +322,15 @@ export const TopHeaderBar: React.FC = () => {
                       setActiveView('workshop');
                       setIoMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-right cursor-pointer"
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-800 text-start cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-900">
-                        ייצא מפת חיתוך וכתב כמויות (.PDF)
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        תוכנית עבודה מפורטת לנגרייה ורשימת קניות
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-2 font-bold">
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      מפת חיתוך ו-BOM
+                    </span>
+                    <span className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                      .PDF
+                    </span>
                   </button>
                 </div>
               )}
