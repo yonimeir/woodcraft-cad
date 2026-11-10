@@ -276,13 +276,233 @@ export function getWoodTexture(
 }
 
 /**
+ * Eliminates CSG T-junctions and floating-point vertex splits along coplanar faces
+ * so `THREE.EdgesGeometry` (`<Edges threshold={15} />`) never draws internal diagonal lines across flat wooden faces.
+ */
+function resolveCSGCoplanarTJunctions(
+  geom: THREE.BufferGeometry
+): THREE.BufferGeometry {
+  const posAttr = geom.getAttribute('position');
+  if (!posAttr || posAttr.count < 3) return geom;
+
+  const uvAttr = geom.getAttribute('uv');
+  const indexAttr = geom.getIndex();
+  const triCount = indexAttr
+    ? Math.floor(indexAttr.count / 3)
+    : Math.floor(posAttr.count / 3);
+  if (triCount <= 1 || triCount > 600) return geom;
+
+  const getVertIdx = (tri: number, corner: number): number =>
+    indexAttr ? indexAttr.getX(tri * 3 + corner) : tri * 3 + corner;
+
+  const uniqueVerts: THREE.Vector3[] = [];
+  const vertGrid = new Map<string, number>();
+
+  const findOrAddVert = (x: number, y: number, z: number): number => {
+    const qx = Math.round(x * 10);
+    const qy = Math.round(y * 10);
+    const qz = Math.round(z * 10);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          const id = vertGrid.get(`${qx + dx}_${qy + dy}_${qz + dz}`);
+          if (id !== undefined) {
+            const v = uniqueVerts[id];
+            if (
+              Math.abs(v.x - x) <= 0.15 &&
+              Math.abs(v.y - y) <= 0.15 &&
+              Math.abs(v.z - z) <= 0.15
+            ) {
+              return id;
+            }
+          }
+        }
+      }
+    }
+    const newId = uniqueVerts.length;
+    const sx = Math.round(x * 100) / 100;
+    const sy = Math.round(y * 100) / 100;
+    const sz = Math.round(z * 100) / 100;
+    uniqueVerts.push(new THREE.Vector3(sx, sy, sz));
+    vertGrid.set(`${qx}_${qy}_${qz}`, newId);
+    return newId;
+  };
+
+  interface TriRecord {
+    v: [number, number, number];
+    uv: [[number, number], [number, number], [number, number]];
+  }
+
+  let tris: TriRecord[] = [];
+  for (let t = 0; t < triCount; t++) {
+    const i0 = getVertIdx(t, 0);
+    const i1 = getVertIdx(t, 1);
+    const i2 = getVertIdx(t, 2);
+    const v0 = findOrAddVert(
+      posAttr.getX(i0),
+      posAttr.getY(i0),
+      posAttr.getZ(i0)
+    );
+    const v1 = findOrAddVert(
+      posAttr.getX(i1),
+      posAttr.getY(i1),
+      posAttr.getZ(i1)
+    );
+    const v2 = findOrAddVert(
+      posAttr.getX(i2),
+      posAttr.getY(i2),
+      posAttr.getZ(i2)
+    );
+    if (v0 === v1 || v1 === v2 || v2 === v0) continue;
+    tris.push({
+      v: [v0, v1, v2],
+      uv: [
+        uvAttr ? [uvAttr.getX(i0), uvAttr.getY(i0)] : [0, 0],
+        uvAttr ? [uvAttr.getX(i1), uvAttr.getY(i1)] : [0, 0],
+        uvAttr ? [uvAttr.getX(i2), uvAttr.getY(i2)] : [0, 0],
+      ],
+    });
+  }
+
+  const ab = new THREE.Vector3();
+  const ap = new THREE.Vector3();
+  const proj = new THREE.Vector3();
+
+  for (let pass = 0; pass < 4; pass++) {
+    let anySplit = false;
+    const nextTris: TriRecord[] = [];
+
+    for (let t = 0; t < tris.length; t++) {
+      const tri = tris[t];
+      let splitDone = false;
+
+      for (let e = 0; e < 3; e++) {
+        const idxA = tri.v[e];
+        const idxB = tri.v[(e + 1) % 3];
+        const idxC = tri.v[(e + 2) % 3];
+        const uvA = tri.uv[e];
+        const uvB = tri.uv[(e + 1) % 3];
+        const uvC = tri.uv[(e + 2) % 3];
+
+        const A = uniqueVerts[idxA];
+        const B = uniqueVerts[idxB];
+        ab.subVectors(B, A);
+        const lenSq = ab.lengthSq();
+        if (lenSq < 0.25) continue;
+
+        const onEdge: Array<{ id: number; tParam: number }> = [];
+        for (let pId = 0; pId < uniqueVerts.length; pId++) {
+          if (pId === idxA || pId === idxB || pId === idxC) continue;
+          const P = uniqueVerts[pId];
+          ap.subVectors(P, A);
+          const tParam = ap.dot(ab) / lenSq;
+          if (tParam <= 0.003 || tParam >= 0.997) continue;
+          proj.copy(A).addScaledVector(ab, tParam);
+          if (proj.distanceToSquared(P) <= 0.09) {
+            onEdge.push({ id: pId, tParam });
+          }
+        }
+
+        if (onEdge.length > 0) {
+          onEdge.sort((x, y) => x.tParam - y.tParam);
+          const chainIds = [idxA, ...onEdge.map((o) => o.id), idxB];
+          const chainT = [0, ...onEdge.map((o) => o.tParam), 1];
+          for (let k = 0; k < chainIds.length - 1; k++) {
+            const u0 = chainIds[k];
+            const u1 = chainIds[k + 1];
+            if (u0 === u1 || u1 === idxC || u0 === idxC) continue;
+            const t0 = chainT[k];
+            const t1 = chainT[k + 1];
+            const lerpUv0: [number, number] = [
+              uvA[0] + (uvB[0] - uvA[0]) * t0,
+              uvA[1] + (uvB[1] - uvA[1]) * t0,
+            ];
+            const lerpUv1: [number, number] = [
+              uvA[0] + (uvB[0] - uvA[0]) * t1,
+              uvA[1] + (uvB[1] - uvA[1]) * t1,
+            ];
+            nextTris.push({
+              v: [u0, u1, idxC],
+              uv: [lerpUv0, lerpUv1, uvC],
+            });
+          }
+          anySplit = true;
+          splitDone = true;
+          break;
+        }
+      }
+
+      if (!splitDone) {
+        nextTris.push(tri);
+      }
+    }
+
+    tris = nextTris;
+    if (!anySplit) break;
+  }
+
+  const positions = new Float32Array(tris.length * 9);
+  const normals = new Float32Array(tris.length * 9);
+  const uvs = new Float32Array(tris.length * 6);
+  const e1 = new THREE.Vector3();
+  const e2 = new THREE.Vector3();
+  const n = new THREE.Vector3();
+
+  let outTris = 0;
+  for (let i = 0; i < tris.length; i++) {
+    const tri = tris[i];
+    const A = uniqueVerts[tri.v[0]];
+    const B = uniqueVerts[tri.v[1]];
+    const C = uniqueVerts[tri.v[2]];
+    e1.subVectors(B, A);
+    e2.subVectors(C, A);
+    n.crossVectors(e1, e2);
+    if (n.lengthSq() < 1e-6) continue;
+    n.normalize();
+
+    const pBase = outTris * 9;
+    const uBase = outTris * 6;
+    const pts = [A, B, C];
+    for (let c = 0; c < 3; c++) {
+      positions[pBase + c * 3] = pts[c].x;
+      positions[pBase + c * 3 + 1] = pts[c].y;
+      positions[pBase + c * 3 + 2] = pts[c].z;
+      normals[pBase + c * 3] = n.x;
+      normals[pBase + c * 3 + 1] = n.y;
+      normals[pBase + c * 3 + 2] = n.z;
+      uvs[uBase + c * 2] = tri.uv[c][0];
+      uvs[uBase + c * 2 + 1] = tri.uv[c][1];
+    }
+    outTris++;
+  }
+
+  if (outTris === 0) return geom;
+
+  const cleanGeom = new THREE.BufferGeometry();
+  cleanGeom.setAttribute(
+    'position',
+    new THREE.BufferAttribute(positions.subarray(0, outTris * 9), 3)
+  );
+  cleanGeom.setAttribute(
+    'normal',
+    new THREE.BufferAttribute(normals.subarray(0, outTris * 9), 3)
+  );
+  cleanGeom.setAttribute(
+    'uv',
+    new THREE.BufferAttribute(uvs.subarray(0, outTris * 6), 2)
+  );
+  return cleanGeom;
+}
+
+/**
  * Builds the 3D BufferGeometry for a Part, applying:
  * 1. Exact Miter Cuts at start (-X) and end (+X)
  * 2. Parametric Half-Lap / Dado Boolean Subtractions (`three-bvh-csg`) from intersecting cutter parts
  */
 export function buildPartGeometry(
   part: Part,
-  allParts: Part[]
+  allParts: Part[],
+  keepAllIslands = false
 ): THREE.BufferGeometry {
   const { outerLength } = resolvePartLengths(part);
   const L = Math.max(20, outerLength);
@@ -363,9 +583,9 @@ export function buildPartGeometry(
         if (!cutter) continue;
 
         const cutterLengths = resolvePartLengths(cutter);
-        const cL = cutterLengths.outerLength + 2; // +2mm clearance for clean CSG cut
-        const cT = cutter.dimensions.thickness + 2;
-        const cW = cutter.dimensions.width + 2;
+        const cL = cutterLengths.outerLength + 30; // +30mm through-axis clearance so flush crossbeams cut all the way through
+        const cT = cutter.dimensions.thickness + 1.5;
+        const cW = cutter.dimensions.width + 1.5;
 
         // Compute cutter transform relative to `part` local space
         const cutterCenter = new THREE.Vector3(...cutter.position);
@@ -404,6 +624,52 @@ export function buildPartGeometry(
           SUBTRACTION
         );
         currentBrush = resultBrush;
+
+        // If `dado.mode === 'full'` and a fragile <10mm corner splinter neck still connects a small tip
+        // (e.g., at the apex of an A-frame where the slanted leg edge passes 2-8mm outside the top corner of the ridge beam),
+        // slice ONLY that <10mm splinter neck with a 0.8mm saw-kerf plane flush with the cutter face so the tip becomes a separate island!
+        if (
+          dado.mode === 'full' &&
+          splitDisconnectedMeshIslands(currentBrush.geometry).length === 1
+        ) {
+          const probeBrush = new Brush(
+            new THREE.BoxGeometry(cL, cT + 20, cW + 20)
+          );
+          probeBrush.position.copy(relPos);
+          probeBrush.quaternion.copy(relQuat);
+          probeBrush.updateMatrixWorld();
+          const probeResult = csgEvaluator.evaluate(
+            currentBrush,
+            probeBrush,
+            SUBTRACTION
+          );
+          if (splitDisconnectedMeshIslands(probeResult.geometry).length > 1) {
+            const kerfPlanes: Array<{
+              dims: [number, number, number];
+              offset: [number, number, number];
+            }> = [
+              { dims: [cL, 0.8, cW + 24], offset: [0, cT / 2 - 0.4, 0] },
+              { dims: [cL, 0.8, cW + 24], offset: [0, -(cT / 2 - 0.4), 0] },
+              { dims: [cL, cT + 24, 0.8], offset: [0, 0, cW / 2 - 0.4] },
+              { dims: [cL, cT + 24, 0.8], offset: [0, 0, -(cW / 2 - 0.4)] },
+            ];
+            for (const kp of kerfPlanes) {
+              const kb = new Brush(new THREE.BoxGeometry(...kp.dims));
+              const localOff = new THREE.Vector3(...kp.offset).applyQuaternion(
+                relQuat
+              );
+              kb.position.copy(relPos).add(localOff);
+              kb.quaternion.copy(relQuat);
+              kb.updateMatrixWorld();
+              currentBrush = csgEvaluator.evaluate(
+                currentBrush,
+                kb,
+                SUBTRACTION
+              );
+            }
+          }
+        }
+
         anySubtracted = true;
       }
 
@@ -650,10 +916,15 @@ export function buildPartGeometry(
 
       if (anySubtracted && currentBrush.geometry) {
         currentBrush.geometry.computeVertexNormals();
+        if (keepAllIslands) {
+          return currentBrush.geometry;
+        }
         const islands = splitDisconnectedMeshIslands(currentBrush.geometry);
         if (islands.length > 1) {
           if (part.detachedFragmentIndex !== undefined) {
-            return islands[part.detachedFragmentIndex] || islands[0];
+            return resolveCSGCoplanarTJunctions(
+              islands[part.detachedFragmentIndex] || islands[0]
+            );
           }
           if (
             part.excludedFragmentIndices &&
@@ -662,11 +933,13 @@ export function buildPartGeometry(
             const excl = new Set(part.excludedFragmentIndices);
             const kept = islands.filter((_, idx) => !excl.has(idx));
             if (kept.length > 0) {
-              return mergeIslandGeometries(kept);
+              return resolveCSGCoplanarTJunctions(mergeIslandGeometries(kept));
             }
           }
+          // Default for a severed parent part: render its primary body (`islands[0]`) so severed offcuts are independent
+          return resolveCSGCoplanarTJunctions(islands[0]);
         }
-        return currentBrush.geometry;
+        return resolveCSGCoplanarTJunctions(currentBrush.geometry);
       }
     } catch {
       // Fallback to base geometry if CSG encounters degenerate overlap
@@ -690,7 +963,7 @@ export function countPartDisconnectedIslands(
     detachedFragmentIndex: undefined,
     excludedFragmentIndices: undefined,
   };
-  const geom = buildPartGeometry(cleanPart, allParts);
+  const geom = buildPartGeometry(cleanPart, allParts, true);
   const islands = splitDisconnectedMeshIslands(geom);
   return islands.length;
 }

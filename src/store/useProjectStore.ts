@@ -257,6 +257,91 @@ const DEFAULT_OPTIMIZER: CutOptimizerSettings = {
   respectGrainDirection: true,
 };
 
+function syncDisconnectedOffcuts(
+  inputParts: Part[],
+  resetOrphanedExclusions = false
+): {
+  parts: Part[];
+  newlySpawnedIds: string[];
+} {
+  const baseParts = inputParts.filter((p) => p.detachedFragmentIndex === undefined);
+  const existingOffcutsById = new Map<string, Part>();
+  for (const p of inputParts) {
+    if (p.detachedFragmentIndex !== undefined && p.id.includes('__offcut_')) {
+      existingOffcutsById.set(p.id, p);
+    }
+  }
+
+  const newlySpawnedIds: string[] = [];
+  const nextOffcuts: Part[] = [];
+
+  const updatedBaseParts = baseParts.map((p) => {
+    const hasCuts =
+      p.dadoNotches.length > 0 || (p.jigsawCuts && p.jigsawCuts.length > 0);
+    if (!hasCuts) {
+      if (p.excludedFragmentIndices && p.excludedFragmentIndices.length > 0) {
+        return { ...p, excludedFragmentIndices: undefined };
+      }
+      return p;
+    }
+
+    const islandCount = countPartDisconnectedIslands(p, baseParts);
+    if (islandCount <= 1) {
+      if (p.excludedFragmentIndices && p.excludedFragmentIndices.length > 0) {
+        return { ...p, excludedFragmentIndices: undefined };
+      }
+      return p;
+    }
+
+    const prevExcluded = new Set(
+      resetOrphanedExclusions ? [] : p.excludedFragmentIndices || []
+    );
+    const nextExcluded = new Set<number>();
+
+    for (let fragIdx = 1; fragIdx < islandCount; fragIdx++) {
+      nextExcluded.add(fragIdx);
+      const deterministicOffcutId = `${p.id}__offcut_${fragIdx}`;
+      const existingOffcut = existingOffcutsById.get(deterministicOffcutId);
+
+      if (existingOffcut) {
+        nextOffcuts.push({
+          ...JSON.parse(JSON.stringify(p)),
+          id: deterministicOffcutId,
+          name: existingOffcut.name,
+          detachedFragmentIndex: fragIdx,
+          excludedFragmentIndices: undefined,
+          groupId: null,
+          locked: false,
+          visible: existingOffcut.visible,
+        });
+      } else if (!prevExcluded.has(fragIdx)) {
+        const spawned: Part = {
+          ...JSON.parse(JSON.stringify(p)),
+          id: deterministicOffcutId,
+          name: `${p.name} (שארית מנותקת)`,
+          detachedFragmentIndex: fragIdx,
+          excludedFragmentIndices: undefined,
+          groupId: null,
+          locked: false,
+          visible: true,
+        };
+        nextOffcuts.push(spawned);
+        newlySpawnedIds.push(deterministicOffcutId);
+      }
+    }
+
+    return {
+      ...p,
+      excludedFragmentIndices: Array.from(nextExcluded),
+    };
+  });
+
+  return {
+    parts: [...updatedBaseParts, ...nextOffcuts],
+    newlySpawnedIds,
+  };
+}
+
 function loadInitialState(): {
   projectName: string;
   parts: Part[];
@@ -269,9 +354,16 @@ function loadInitialState(): {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.parts)) {
+        const hasNewFormatOffcuts = parsed.parts.some(
+          (p: Part) => p.detachedFragmentIndex !== undefined && p.id.includes('__offcut_')
+        );
+        const synced = syncDisconnectedOffcuts(
+          parsed.parts,
+          !hasNewFormatOffcuts
+        );
         return {
           projectName: parsed.projectName || 'פרויקט נגרות חדש',
-          parts: parsed.parts,
+          parts: synced.parts,
           groups: parsed.groups || [],
           room: { ...DEFAULT_ROOM, ...(parsed.room || {}) },
           optimizerSettings: {
@@ -1346,49 +1438,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       return p;
     });
 
-    // Topological Connectivity Check:
-    // If the Dado cut physically severed a beam into 2+ disconnected pieces (no wood bridge connecting the main beam
-    // and the small remainder tip), automatically split the severed remainder into its own independent selectable Part
-    // so the user can click it and press Delete! If a wood bridge remains, it stays connected as 1 part.
-    const spawnedOffcuts: Part[] = [];
-    const finalParts = nextParts.map((p) => {
-      if (!notchedIds.has(p.id) || p.detachedFragmentIndex !== undefined) return p;
-      const islandCount = countPartDisconnectedIslands(p, nextParts);
-      if (islandCount <= 1) return p;
-
-      const existingExcluded = new Set(p.excludedFragmentIndices || []);
-      for (let fragIdx = 1; fragIdx < islandCount; fragIdx++) {
-        if (existingExcluded.has(fragIdx)) continue;
-        existingExcluded.add(fragIdx);
-        spawnedOffcuts.push({
-          ...JSON.parse(JSON.stringify(p)),
-          id: `offcut-${Date.now().toString(36)}-${fragIdx}-${Math.random()
-            .toString(36)
-            .slice(2, 5)}`,
-          name: `${p.name} (שארית מנותקת)`,
-          detachedFragmentIndex: fragIdx,
-          excludedFragmentIndices: undefined,
-          groupId: null,
-          locked: false,
-        });
-      }
-
-      return {
-        ...p,
-        excludedFragmentIndices: Array.from(existingExcluded),
-      };
-    });
-
-    const allResultParts = [...finalParts, ...spawnedOffcuts];
+    const { parts: allResultParts, newlySpawnedIds } =
+      syncDisconnectedOffcuts(nextParts);
     set({
       parts: allResultParts,
-      ...(spawnedOffcuts.length > 0
-        ? { selectedIds: spawnedOffcuts.map((o) => o.id) }
+      ...(newlySpawnedIds.length > 0
+        ? { selectedIds: newlySpawnedIds }
         : {}),
     });
     saveToLocalStorage({ ...get(), parts: allResultParts });
     get().addToast(
-      spawnedOffcuts.length > 0
+      newlySpawnedIds.length > 0
         ? `נוצרה מגרעת — שארית מנותקת הופרדה לחלק עצמאי (לחץ Delete למחיקה)`
         : `נוצרה מגרעת ${mode === 'half' ? 'חצי-חצי' : 'מלאה (Dado)'}`,
       'success'
@@ -1498,8 +1558,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         ? { ...p, jigsawCuts: [...(p.jigsawCuts || []), newCut] }
         : p
     );
-    set({ parts: nextParts });
-    saveToLocalStorage({ ...get(), parts: nextParts });
+    const synced = syncDisconnectedOffcuts(nextParts);
+    set({ parts: synced.parts });
+    saveToLocalStorage({ ...get(), parts: synced.parts });
     get().addToast(`נוסף חיתוך ג'יגסו: ${cut.label}`, 'success');
   },
 
@@ -1514,8 +1575,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         ),
       };
     });
-    set({ parts: nextParts });
-    saveToLocalStorage({ ...get(), parts: nextParts });
+    const synced = syncDisconnectedOffcuts(nextParts);
+    set({ parts: synced.parts });
+    saveToLocalStorage({ ...get(), parts: synced.parts });
   },
 
   removeJigsawCut: (partId, cutId) => {
@@ -1528,8 +1590,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           }
         : p
     );
-    set({ parts: nextParts });
-    saveToLocalStorage({ ...get(), parts: nextParts });
+    const synced = syncDisconnectedOffcuts(nextParts, true);
+    set({ parts: synced.parts });
+    saveToLocalStorage({ ...get(), parts: synced.parts });
     get().addToast('חיתוך הג\'יגסו הוסר', 'info');
   },
 
@@ -1540,8 +1603,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         ? { ...p, dadoNotches: p.dadoNotches.filter((d) => d.id !== dadoId) }
         : p
     );
-    set({ parts: nextParts });
-    saveToLocalStorage({ ...get(), parts: nextParts });
+    const synced = syncDisconnectedOffcuts(nextParts, true);
+    set({ parts: synced.parts });
+    saveToLocalStorage({ ...get(), parts: synced.parts });
     get().addToast('המגרעת הוסרה', 'info');
   },
 
@@ -1576,8 +1640,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         : { ...p, dadoNotches: validDados };
     });
 
+    const synced = syncDisconnectedOffcuts(cleanedParts);
+    set({ parts: synced.parts });
     if (changed) {
-      set({ parts: cleanedParts });
       for (const msg of removedMessages) {
         get().addToast(msg, 'warning');
       }
